@@ -37,10 +37,20 @@ jobs:
           set -euxo pipefail
           sudo rm -rf \
             /opt/ghc \
-            /opt/hostedtoolcache/CodeQL \
+            /opt/hostedtoolcache \
+            /opt/microsoft \
             /usr/local/.ghcup \
+            /usr/local/aws-cli \
+            /usr/local/aws-sam-cli \
+            /usr/local/julia* \
             /usr/local/lib/android \
-            /usr/share/dotnet
+            /usr/local/share/boost \
+            /usr/local/share/chromium \
+            /usr/local/share/powershell \
+            /usr/local/share/vcpkg \
+            /usr/share/dotnet \
+            /usr/share/swift
+          docker system prune --all --force --volumes || true
           sudo apt-get clean
           df -h /
 
@@ -57,6 +67,8 @@ jobs:
             pngcrush repo rsync schedtool squashfs-tools unzip x11proto-core-dev \
             xsltproc zip zlib1g-dev zstd
           sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+          df -h /
 
       - name: Sync TWRP 16 source
         shell: bash
@@ -67,15 +79,21 @@ jobs:
           repo init \
             -u https://github.com/TWRP-Test/platform_manifest_twrp_aosp.git \
             -b twrp-16.0 \
-            --depth=1
+            --depth=1 \
+            --no-clone-bundle \
+            --partial-clone \
+            --clone-filter=blob:limit=10M
           repo sync \
             -c \
+            --fail-fast \
             --force-sync \
             --no-clone-bundle \
             --no-tags \
             --optimized-fetch \
             --prune \
-            -j"$(nproc)"
+            -j2
+          du -sh "${TWRP_SOURCE}"
+          df -h /
 
       - name: Install device tree
         shell: bash
