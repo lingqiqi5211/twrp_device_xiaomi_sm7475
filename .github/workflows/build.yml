@@ -22,8 +22,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     env:
-      TWRP_SOURCE: ${{ github.workspace }}/twrp-src
-      PRODUCT_OUT: ${{ github.workspace }}/twrp-src/out/target/product/marble
+      TWRP_SOURCE: /mnt/twrp-src
+      PRODUCT_OUT: /mnt/twrp-src/out/target/product/marble
 
     steps:
       - name: Check out device tree
@@ -52,7 +52,14 @@ jobs:
             /usr/share/swift
           docker system prune --all --force --volumes || true
           sudo apt-get clean
-          df -h /
+          df -h / /mnt | tee "${GITHUB_WORKSPACE}/runner-disk.txt"
+
+      - name: Upload runner disk layout
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: runner-disk-${{ github.run_number }}
+          retention-days: 7
+          path: runner-disk.txt
 
       - name: Install build dependencies
         shell: bash
@@ -68,13 +75,13 @@ jobs:
             xsltproc zip zlib1g-dev zstd
           sudo apt-get clean
           sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
-          df -h /
+          df -h / /mnt
 
       - name: Sync TWRP 16 source
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p "${TWRP_SOURCE}"
+          sudo install -d -o "$(id -u)" -g "$(id -g)" "${TWRP_SOURCE}"
           cd "${TWRP_SOURCE}"
           repo init \
             -u https://github.com/TWRP-Test/platform_manifest_twrp_aosp.git \
@@ -93,7 +100,7 @@ jobs:
             --prune \
             -j2
           du -sh "${TWRP_SOURCE}"
-          df -h /
+          df -h / /mnt
 
       - name: Install device tree
         shell: bash
@@ -187,4 +194,5 @@ jobs:
           path: |
             build.log
             recovery.sha256
-            twrp-src/out/target/product/marble/recovery.img
+            runner-disk.txt
+            /mnt/twrp-src/out/target/product/marble/recovery.img
