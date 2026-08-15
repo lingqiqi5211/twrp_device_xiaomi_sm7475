@@ -1,0 +1,20 @@
+# ADB
+ro.adb.secure=0
+ro.boot.dynamic_partitions=true
+
+# Battery / QTI HAL selection
+ro.charger.enable_suspend=1
+ro.hardware.bootctrl=qti
+ro.hardware.health=qti
+
+# Gatekeeper
+vendor.gatekeeper.disable_spu=true
+vendor.gatekeeper.is_security_level_spu=0
+
+# Dynamic partitions
+ro.dynamic.full_size=9663676416
+
+# USB
+vendor.usb.configfs=1
+vendor.usb.use_ffs_mtp=1
+vendor.usb.rps_mask=0
