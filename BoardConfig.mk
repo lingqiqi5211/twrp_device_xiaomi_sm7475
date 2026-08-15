@@ -31,14 +31,15 @@ TARGET_USES_UEFI := true
 TARGET_USES_REMOTEPROC := true
 
 # Recovery is a ramdisk-only A/B recovery image. The running kernel comes from
-# vendor_boot, so no kernel blob is embedded in recovery.img.
+# vendor_boot, so the prebuilt is used for build metadata/VINTF validation but
+# is not embedded in recovery.img.
 BOARD_BOOT_HEADER_VERSION := 4
 BOARD_KERNEL_PAGESIZE := 4096
 BOARD_MKBOOTIMG_ARGS += --header_version $(BOARD_BOOT_HEADER_VERSION)
 BOARD_MKBOOTIMG_ARGS += --pagesize $(BOARD_KERNEL_PAGESIZE)
 BOARD_RAMDISK_USE_LZ4 := true
 BOARD_EXCLUDE_KERNEL_FROM_RECOVERY_IMAGE := true
-TARGET_NO_KERNEL_OVERRIDE := true
+TARGET_PREBUILT_KERNEL := $(DEVICE_PATH)/prebuilt/kernel-melt
 
 # Partitions
 BOARD_FLASH_BLOCK_SIZE := 262144

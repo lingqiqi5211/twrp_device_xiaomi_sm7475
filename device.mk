@@ -10,7 +10,6 @@ $(call inherit-product, vendor/twrp/config/common.mk)
 # marble launched on Android 13. Keep the vendor compatibility level truthful
 # even though the recovery itself is built from the Android 16/API 36 tree.
 BOARD_SHIPPING_API_LEVEL := 33
-BOARD_API_LEVEL := 33
 SHIPPING_API_LEVEL := 33
 PRODUCT_SHIPPING_API_LEVEL := 33
 PRODUCT_TARGET_VNDK_VERSION := 33

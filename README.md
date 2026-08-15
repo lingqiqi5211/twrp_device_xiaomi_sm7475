@@ -21,8 +21,12 @@ m recoveryimage
 ```
 
 Alternatively, set `TWRP_SOURCE` to an existing TWRP 16 source directory and
-run `scripts/build.sh`. GitHub Actions uses the same manifest and lunch target
-and uploads `recovery.img`, its SHA-256 file and the complete build log.
+run `scripts/build.sh`.
+
+The manual GitHub Actions workflow targets a self-hosted Linux x64 runner with
+at least 120 GiB of free disk and 16 GiB of RAM. Standard GitHub-hosted runners
+do not have enough disk for this TWRP 16 source tree. The workflow uploads
+`recovery.img`, its SHA-256 file and the complete build log.
 
 The output is `out/target/product/marble/recovery.img`. It is a ramdisk-only
 A/B recovery image; do not use `fastboot boot` with it. Flash the active or

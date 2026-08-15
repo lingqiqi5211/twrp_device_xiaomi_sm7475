@@ -2,12 +2,6 @@ name: Build TWRP 16 for marble
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-      - "agent/**"
-    paths-ignore:
-      - "**/*.md"
 
 concurrency:
   group: twrp16-marble-${{ github.ref }}
@@ -19,11 +13,11 @@ permissions:
 jobs:
   recovery:
     name: recovery.img
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 360
     env:
-      TWRP_SOURCE: /mnt/twrp-src
-      PRODUCT_OUT: /mnt/twrp-src/out/target/product/marble
+      TWRP_SOURCE: ${{ runner.temp }}/twrp-src
+      PRODUCT_OUT: ${{ runner.temp }}/twrp-src/out/target/product/marble
 
     steps:
       - name: Check out device tree
@@ -31,35 +25,23 @@ jobs:
         with:
           path: device-tree
 
-      - name: Free runner disk space
+      - name: Check build host capacity
         shell: bash
         run: |
-          set -euxo pipefail
-          sudo rm -rf \
-            /opt/ghc \
-            /opt/hostedtoolcache \
-            /opt/microsoft \
-            /usr/local/.ghcup \
-            /usr/local/aws-cli \
-            /usr/local/aws-sam-cli \
-            /usr/local/julia* \
-            /usr/local/lib/android \
-            /usr/local/share/boost \
-            /usr/local/share/chromium \
-            /usr/local/share/powershell \
-            /usr/local/share/vcpkg \
-            /usr/share/dotnet \
-            /usr/share/swift
-          docker system prune --all --force --volumes || true
-          sudo apt-get clean
-          df -h / /mnt | tee "${GITHUB_WORKSPACE}/runner-disk.txt"
-
-      - name: Upload runner disk layout
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: runner-disk-${{ github.run_number }}
-          retention-days: 7
-          path: runner-disk.txt
+          set -euo pipefail
+          mkdir -p "${TWRP_SOURCE}"
+          available_kib="$(df -Pk "${TWRP_SOURCE}" | awk 'NR == 2 { print $4 }')"
+          memory_kib="$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)"
+          if (( available_kib < 125829120 )); then
+            echo 'TWRP 16 requires at least 120 GiB of free build disk.' >&2
+            exit 1
+          fi
+          if (( memory_kib < 16777216 )); then
+            echo 'TWRP 16 requires at least 16 GiB of RAM.' >&2
+            exit 1
+          fi
+          df -h "${TWRP_SOURCE}"
+          free -h
 
       - name: Install build dependencies
         shell: bash
@@ -70,12 +52,12 @@ jobs:
             bc bison build-essential ca-certificates curl flex \
             g++-multilib gcc-multilib git gnupg gperf imagemagick \
             lib32ncurses-dev lib32readline-dev lib32z1-dev libelf-dev \
-            liblz4-tool libncurses-dev libssl-dev libxml2-utils lz4 \
+            liblz4-tool libncurses-dev libssl-dev libxml2-utils lz4 lzop \
             pngcrush repo rsync schedtool squashfs-tools unzip x11proto-core-dev \
             xsltproc zip zlib1g-dev zstd
           sudo apt-get clean
           sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
-          df -h / /mnt
+          df -h "${TWRP_SOURCE}"
 
       - name: Sync TWRP 16 source
         shell: bash
@@ -100,7 +82,7 @@ jobs:
             --prune \
             -j2
           du -sh "${TWRP_SOURCE}"
-          df -h / /mnt
+          df -h "${TWRP_SOURCE}"
 
       - name: Install device tree
         shell: bash
@@ -123,7 +105,7 @@ jobs:
           export ALLOW_MISSING_DEPENDENCIES=true
           source build/envsetup.sh
           lunch twrp_marble-bp2a-eng
-          m -j"$(nproc)" recoveryimage 2>&1 | tee "${GITHUB_WORKSPACE}/build.log"
+          m -j4 recoveryimage 2>&1 | tee "${GITHUB_WORKSPACE}/build.log"
 
       - name: Verify image and runtime composition
         shell: bash
@@ -135,6 +117,7 @@ jobs:
           test "$(stat -c %s "${image}")" -le 104857600
 
           for file in \
+            "${root}/system/bin/qseecomd" \
             "${root}/system/bin/android.hardware.gatekeeper@1.0-service-qti" \
             "${root}/system/bin/android.hardware.keymaster@4.1-service-qti" \
             "${root}/system/bin/android.hardware.security.keymint-service-qti" \
@@ -168,19 +151,23 @@ jobs:
 
           test -f "${root}/vendor/etc/init/marble-security.rc"
           test -f "${root}/system/etc/recovery.fstab"
+          test -f "${root}/vendor/etc/vintf/manifest/marble-security.xml"
           test -f "${root}/vendor/etc/vintf/manifest/vendor.qti.hardware.vibrator.service.xml"
-          grep -aFq 'TW_NO_NETWORK := true' "${root}/system/bin/twrp"
 
-          wifi_runtime="$(find "${root}" -type f \( \
+          wifi_runtime="$(find "${root}" \( -type f -o -type l \) \( \
               -name wpa_cli -o \
               -name wpa_supplicant -o \
-              -name hostapd \
+              -name hostapd -o \
+              -name ttyd -o \
+              -name microhttpd \
             \) -print -quit)"
           if [[ -n "${wifi_runtime}" ]]; then
             echo 'Unexpected WLAN runtime found in the recovery ramdisk.' >&2
             exit 1
           fi
 
+          "${TWRP_SOURCE}/out/host/linux-x86/bin/avbtool" \
+            info_image --image "${image}"
           sha256sum "${image}" | tee "${GITHUB_WORKSPACE}/recovery.sha256"
           file "${image}"
 
@@ -194,5 +181,4 @@ jobs:
           path: |
             build.log
             recovery.sha256
-            runner-disk.txt
-            /mnt/twrp-src/out/target/product/marble/recovery.img
+            ${{ env.PRODUCT_OUT }}/recovery.img
