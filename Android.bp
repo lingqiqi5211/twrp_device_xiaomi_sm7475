@@ -3,3 +3,18 @@
 
 soong_namespace {
 }
+
+cc_binary {
+    name: "marble_wifi_halctl",
+    srcs: ["wifi/halctl.cpp"],
+    shared_libs: [
+        "android.hardware.wifi@1.0",
+        "libhidlbase",
+        "liblog",
+        "libutils",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+}

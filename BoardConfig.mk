@@ -160,4 +160,30 @@ RECOVERY_BINARY_SOURCE_FILES += \
     $(TARGET_OUT_EXECUTABLES)/debuggerd \
     $(TARGET_OUT_EXECUTABLES)/strace
 TW_DEVICE_VERSION := marble-A16+
+ifeq ($(TARGET_PRODUCT),twrp_marble_wifi)
+TARGET_RECOVERY_DEVICE_MODULES += \
+    android.hardware.wifi@1.0 \
+    android.hardware.security.keymint-V1-ndk \
+    android.system.keystore2-V1-ndk \
+    dhcpdbg \
+    libkeystore-engine-wifi-hidl \
+    libnl \
+    libssl \
+    marble_recovery_wpa_cli \
+    marble_recovery_wpa_supplicant \
+    marble_wifi_halctl
+RECOVERY_BINARY_SOURCE_FILES += \
+    $(TARGET_OUT_EXECUTABLES)/dhcpdbg \
+    $(TARGET_OUT_EXECUTABLES)/marble_recovery_wpa_cli \
+    $(TARGET_OUT_EXECUTABLES)/marble_recovery_wpa_supplicant \
+    $(TARGET_OUT_EXECUTABLES)/marble_wifi_halctl
+RECOVERY_LIBRARY_SOURCE_FILES += \
+    $(TARGET_OUT_SHARED_LIBRARIES)/android.hardware.wifi@1.0.so \
+    $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)/android.hardware.security.keymint-V1-ndk.so \
+    $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)/android.system.keystore2-V1-ndk.so \
+    $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)/libkeystore-engine-wifi-hidl.so \
+    $(TARGET_OUT_SHARED_LIBRARIES)/libnl.so \
+    $(TARGET_OUT_SHARED_LIBRARIES)/libssl.so
+else
 TW_NO_NETWORK := true
+endif

@@ -1,0 +1,22 @@
+service vendor.wifi_hal_legacy /vendor/bin/hw/android.hardware.wifi@1.0-service
+    interface android.hardware.wifi@1.0::IWifi default
+    interface android.hardware.wifi@1.1::IWifi default
+    interface android.hardware.wifi@1.2::IWifi default
+    interface android.hardware.wifi@1.3::IWifi default
+    interface android.hardware.wifi@1.4::IWifi default
+    interface android.hardware.wifi@1.5::IWifi default
+    class hal
+    capabilities NET_ADMIN NET_RAW SYS_MODULE
+    user root
+    group root wifi inet gps
+    seclabel u:r:recovery:s0
+    disabled
+    oneshot
+
+service marble_recovery_wpa_supplicant /system/bin/marble_recovery_wpa_supplicant -Dnl80211 -iwlan0 -c/vendor/etc/wifi/marble_recovery_wpa_supplicant.conf -O/tmp/recovery/sockets
+    class main
+    user root
+    group root wifi inet net_raw net_admin
+    seclabel u:r:recovery:s0
+    disabled
+    oneshot

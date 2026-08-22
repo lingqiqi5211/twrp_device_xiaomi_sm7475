@@ -63,3 +63,7 @@ PRODUCT_EXTRA_RECOVERY_KEYS += \
 
 PRODUCT_SYSTEM_PROPERTIES += \
     persist.sys.fuse.passthrough.enable=true
+
+ifeq ($(TARGET_PRODUCT),twrp_marble_wifi)
+$(call inherit-product, $(DEVICE_PATH)/wifi/wifi.mk)
+endif
