@@ -122,8 +122,6 @@ TW_DEFAULT_BRIGHTNESS := 420
 TW_MAX_BRIGHTNESS := 4095
 TW_CUSTOM_CPU_TEMP_PATH := "/sys/devices/virtual/thermal/thermal_zone34/temp"
 TW_NO_SCREEN_BLANK := true
-TW_SUPPORT_INPUT_AIDL_HAPTICS := true
-TW_SUPPORT_INPUT_AIDL_HAPTICS_FIX_OFF := true
 
 # Device services / modules. TWRP 16's WLAN implementation targets newer
 # devices and assumes a device-supplied wpa_supplicant stack. marble is a
