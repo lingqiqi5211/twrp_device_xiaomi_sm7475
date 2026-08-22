@@ -118,6 +118,7 @@ RECOVERY_LIBRARY_SOURCE_FILES += \
 
 # Display / input
 TW_THEME := portrait_hdpi
+TW_CUSTOM_CLOCK_POS := 620
 TW_DEFAULT_LANGUAGE := zh_CN
 TW_EXTRA_LANGUAGES := true
 TW_FRAMERATE := 120
@@ -159,7 +160,7 @@ TARGET_RECOVERY_DEVICE_MODULES += debuggerd strace
 RECOVERY_BINARY_SOURCE_FILES += \
     $(TARGET_OUT_EXECUTABLES)/debuggerd \
     $(TARGET_OUT_EXECUTABLES)/strace
-TW_DEVICE_VERSION := marble-A16+
+TW_DEVICE_VERSION := sm7475-marble-for-lingqiqi
 ifeq ($(TARGET_PRODUCT),twrp_marble_wifi)
 TARGET_RECOVERY_DEVICE_MODULES += \
     android.hardware.wifi@1.0 \

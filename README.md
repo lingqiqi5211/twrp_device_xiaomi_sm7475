@@ -12,24 +12,60 @@ repo sync -c --no-tags --no-clone-bundle -j"$(nproc)"
 git clone <this-repository> device/xiaomi/marble
 ```
 
-## Build
+`bootable/recovery` is built from the marble source branch rather than the
+upstream branch plus a patch series, so select it with the bundled local
+manifest and sync that project again:
 
 ```bash
+mkdir -p .repo/local_manifests
+cp device/xiaomi/marble/manifests/marble-twrp16.xml .repo/local_manifests/
+repo sync -c --no-tags --no-clone-bundle bootable/recovery
+```
+
+The branch is `marble-twrp16` of
+`https://github.com/lingqiqi5211/android_bootable_recovery`, which tracks
+`TWRP-Test/android_bootable_recovery` `twrp-16.0`. `scripts/apply-patches.sh`
+refuses to build when that checkout is missing the marble recovery changes, so
+a forgotten local manifest fails loudly instead of producing an image without
+them.
+
+## Build
+
+The stable product keeps networking out of the recovery ramdisk:
+
+```bash
+bash device/xiaomi/marble/scripts/apply-patches.sh "$PWD" twrp_marble
 source build/envsetup.sh
 lunch twrp_marble-bp2a-eng
 m recoveryimage
 ```
 
-Alternatively, set `TWRP_SOURCE` to an existing TWRP 16 source directory and
-run `scripts/build.sh`.
+The experimental Wi-Fi product has a separate output directory and prepares
+the pinned Android 16 `wpa_supplicant_8` source automatically:
+
+```bash
+TWRP_SOURCE="$PWD" \
+TWRP_PRODUCT=twrp_marble_wifi \
+bash device/xiaomi/marble/scripts/build.sh
+```
+
+For the stable product, `scripts/build.sh` defaults to `twrp_marble`. Both
+products patch `system/core` so `libusbhost` offers a recovery variant; only
+`twrp_marble_wifi` fetches and patches `external/wpa_supplicant_8`. The
+recovery changes themselves are no longer patches. See `patches/README.md` for
+the pinned source revisions.
+
+All files under `scripts/` and recovery runtime shell scripts must be committed
+with Git mode `100755`; CI rejects a checkout that loses their executable bit.
 
 The manual GitHub Actions workflow targets a self-hosted Linux x64 runner with
 at least 120 GiB of free disk and 16 GiB of RAM. Standard GitHub-hosted runners
 do not have enough disk for this TWRP 16 source tree. The workflow uploads
 `recovery.img`, its SHA-256 file and the complete build log.
 
-The output is `out/target/product/marble/recovery.img`. It is a ramdisk-only
-A/B recovery image; do not use `fastboot boot` with it. Flash the active or
+The stable output is `out/target/product/marble/recovery.img`; the Wi-Fi output
+is `out-marble-wifi/target/product/marble/recovery.img`. Both are ramdisk-only
+A/B recovery images; do not use `fastboot boot` with them. Flash the active or
 inactive recovery slot only after confirming the device codename and making a
 backup.
 
@@ -41,10 +77,15 @@ backup.
   service required by newer Android userdata.
 - Uses marble's current QTI AIDL V2 vibrator service instead of the obsolete
   `ndk_platform` vibrator ABI removed from the TWRP 16 build tree.
-- Deliberately disables TWRP 16's WLAN UI/runtime with `TW_NO_NETWORK`. marble
-  uses an older HIDL-heavy vendor stack and does not provide the newer recovery
-  Wi-Fi service/module set. HIDL security and Wi-Fi-keystore ABI libraries used
-  by the crypto stack remain available; Wi-Fi itself is not started.
+- The stable `twrp_marble` product deliberately disables TWRP 16's WLAN
+  UI/runtime with `TW_NO_NETWORK`.
+- The experimental `twrp_marble_wifi` product uses marble's stock HIDL Wi-Fi
+  HAL and kernel modules with recovery-only, control-socket `wpa_supplicant`
+  binaries built from Android 16 source. WPA2 and WPA2/WPA3 transition mode
+  have been tested; transition mode currently prefers WPA2 compatibility.
+  Pure WPA3-SAE remains unverified. Credentials are never written back to the
+  supplicant configuration, and stopping Wi-Fi retains the HAL/modules for
+  faster reuse while clearing IP, gateway and DNS state.
 - Uses fscrypt policy v2, wrapped-key metadata encryption, EROFS logical
   partitions and Android Q through W GSI AVB keys.
 - Selects the MIUI 14 or HyperOS kernel-module set at recovery startup.

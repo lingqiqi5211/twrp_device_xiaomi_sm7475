@@ -2,9 +2,18 @@ name: Build TWRP 16 for marble
 
 on:
   workflow_dispatch:
+    inputs:
+      product:
+        description: Recovery product to build
+        required: true
+        default: twrp_marble
+        type: choice
+        options:
+          - twrp_marble
+          - twrp_marble_wifi
 
 concurrency:
-  group: twrp16-marble-${{ github.ref }}
+  group: twrp16-marble-${{ github.ref }}-${{ inputs.product }}
   cancel-in-progress: true
 
 permissions:
@@ -12,18 +21,37 @@ permissions:
 
 jobs:
   recovery:
-    name: recovery.img
+    name: recovery.img (${{ inputs.product }})
     runs-on: [self-hosted, linux, x64]
     timeout-minutes: 360
     env:
-      TWRP_SOURCE: ${{ runner.temp }}/twrp-src
-      PRODUCT_OUT: ${{ runner.temp }}/twrp-src/out/target/product/marble
+      TWRP_SOURCE: ${{ runner.temp }}/twrp-src-${{ github.run_id }}-${{ github.run_attempt }}
+      TWRP_PRODUCT: ${{ inputs.product }}
 
     steps:
       - name: Check out device tree
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           path: device-tree
+
+      - name: Configure build output
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${TWRP_PRODUCT}" in
+            twrp_marble)
+              out_dir=out
+              ;;
+            twrp_marble_wifi)
+              out_dir=out-marble-wifi
+              ;;
+            *)
+              echo "Unsupported TWRP product: ${TWRP_PRODUCT}" >&2
+              exit 1
+              ;;
+          esac
+          echo "OUT_DIR=${out_dir}" >> "${GITHUB_ENV}"
+          echo "PRODUCT_OUT=${TWRP_SOURCE}/${out_dir}/target/product/marble" >> "${GITHUB_ENV}"
 
       - name: Check build host capacity
         shell: bash
@@ -51,6 +79,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             bc bison build-essential ca-certificates curl flex \
             g++-multilib gcc-multilib git gnupg gperf imagemagick \
+            kmod \
             lib32ncurses-dev lib32readline-dev lib32z1-dev libelf-dev \
             liblz4-tool libncurses-dev libssl-dev libxml2-utils lz4 lzop \
             pngcrush repo rsync schedtool squashfs-tools unzip x11proto-core-dev \
@@ -92,19 +121,34 @@ jobs:
           rsync -a --delete \
             --exclude=.git \
             --exclude=.github \
+            --exclude=.codex-cache \
+            --exclude=.codex-context \
             "${GITHUB_WORKSPACE}/device-tree/" \
             "${TWRP_SOURCE}/device/xiaomi/marble/"
-          grep -qx 'TW_NO_NETWORK := true' \
-            "${TWRP_SOURCE}/device/xiaomi/marble/BoardConfig.mk"
+          for script in \
+            recovery/root/system/bin/beforemodules.sh \
+            recovery/root/system/bin/waitforbattery.sh \
+            scripts/apply-patches.sh \
+            scripts/build.sh \
+            scripts/prepare-wifi-source.sh \
+            wifi/marble-wifi-control.sh \
+            wifi/marble-wifi-dhcp.sh; do
+            test -x "${GITHUB_WORKSPACE}/device-tree/${script}"
+          done
 
       - name: Build recovery image
         shell: bash
         run: |
-          set -o pipefail
+          set -eo pipefail
           cd "${TWRP_SOURCE}"
+          if [[ "${TWRP_PRODUCT}" == "twrp_marble_wifi" ]]; then
+            bash device/xiaomi/marble/scripts/prepare-wifi-source.sh "${TWRP_SOURCE}"
+          fi
+          bash device/xiaomi/marble/scripts/apply-patches.sh \
+            "${TWRP_SOURCE}" "${TWRP_PRODUCT}"
           export ALLOW_MISSING_DEPENDENCIES=true
           source build/envsetup.sh
-          lunch twrp_marble-bp2a-eng
+          lunch "${TWRP_PRODUCT}-bp2a-eng"
           m -j4 recoveryimage 2>&1 | tee "${GITHUB_WORKSPACE}/build.log"
 
       - name: Verify image and runtime composition
@@ -121,7 +165,6 @@ jobs:
             "${root}/system/bin/android.hardware.gatekeeper@1.0-service-qti" \
             "${root}/system/bin/android.hardware.keymaster@4.1-service-qti" \
             "${root}/system/bin/android.hardware.security.keymint-service-qti" \
-            "${root}/system/bin/vendor.qti.hardware.vibrator.service" \
             "${root}/vendor/lib64/libqtikeymint.so"; do
             test -x "${file}" || test -r "${file}"
           done
@@ -138,8 +181,75 @@ jobs:
             grep -Fq 'android.hardware.security.rkp-V3-ndk.so' <<<"${needed}"
           done
 
-          needed="$(readelf -d "${root}/system/bin/vendor.qti.hardware.vibrator.service")"
-          grep -Fq 'android.hardware.vibrator-V2-ndk.so' <<<"${needed}"
+          grep -Fq 'vibrate_with_ff' \
+            "${TWRP_SOURCE}/bootable/recovery/minuitwrp/events.cpp"
+          grep -Fq 'FF_CONSTANT' \
+            "${TWRP_SOURCE}/bootable/recovery/minuitwrp/events.cpp"
+          grep -Fq 'TW_VENDOR_MODULES_PREPARE_SCRIPT' \
+            "${TWRP_SOURCE}/bootable/recovery/kernel_module_loader.cpp"
+          grep -Fq 'prepare_script_completed' \
+            "${TWRP_SOURCE}/bootable/recovery/kernel_module_loader.cpp"
+          grep -Fq 'persist_value_changed' \
+            "${TWRP_SOURCE}/bootable/recovery/data.cpp"
+          grep -Fq 'Persistent settings storage is not mounted' \
+            "${TWRP_SOURCE}/bootable/recovery/infomanager.cpp"
+          grep -Fq 'aidl_health_declared' \
+            "${TWRP_SOURCE}/bootable/recovery/recovery_utils/battery_utils.cpp"
+          grep -Fq 'restart_period 1' \
+            "${TWRP_SOURCE}/bootable/recovery/etc/init.rc"
+          grep -aFq 'effect type %d' \
+            "${root}/system/lib64/libminuitwrp.so"
+          test -x "${root}/system/bin/beforemodules.sh"
+          test -x "${root}/system/bin/waitforbattery.sh"
+          grep -aFq 'Running vendor module prepare script' \
+            "${root}/system/bin/recovery"
+          grep -aFq 'Apex is disabled in this build' \
+            "${root}/system/bin/recovery"
+          grep -Fq 'restart_period 1' \
+            "${root}/system/etc/init/hw/init.rc"
+          grep -Fq 'start twrp-wait-for-battery' \
+            "${root}/init.recovery.qcom.rc"
+          grep -Fq 'on property:twrp.battery.ready=true' \
+            "${root}/init.recovery.qcom.rc"
+          ! grep -Fq 'start boot-hal-1-2' \
+            "${root}/init.recovery.qcom.rc"
+          ! grep -Fq 'vendor.boot-hal-1-2' \
+            "${root}/init.recovery.qcom.rc"
+          ! grep -Fq 'install_keyring' \
+            "${root}/init.recovery.qcom.rc"
+          ! grep -Fq 'umount /firmware' \
+            "${root}/init.recovery.qcom.rc"
+          grep -Fq 'umount /firmware' \
+            "${root}/system/bin/waitforbattery.sh"
+          grep -Fq 'firmware_cleanup' \
+            "${root}/system/bin/waitforbattery.sh"
+          ! grep -q $'\r' \
+            "${root}/system/etc/twrp.flags"
+          ! grep -Eq '^/mi_ext[[:space:]]' \
+            "${root}/system/etc/twrp.flags"
+          test "$(grep -Ec '^mi_ext[[:space:]]+/mi_ext[[:space:]]+' \
+            "${root}/system/etc/recovery.fstab")" -eq 2
+          grep -E '^mi_ext[[:space:]]+/mi_ext[[:space:]].*[[:space:],]logical([[:space:],]|$).*[[:space:],]nofail([[:space:],]|$)' \
+            "${root}/system/etc/recovery.fstab"
+          ! grep -Fq 'wait /sys/class/power_supply/battery' \
+            "${root}/init.recovery.qcom.rc"
+          grep -Fq 'value="620"' \
+            "${root}/twres/ui.xml"
+          grep -aFq '3.7.1_16-sm7475-marble-for-lingqiqi' \
+            "${root}/system/bin/recovery"
+
+          for legacy_vibrator_file in \
+            "${root}/system/bin/vendor.qti.hardware.vibrator.service" \
+            "${root}/system/etc/init/vendor.qti.hardware.vibrator.service.rc" \
+            "${root}/vendor/etc/vintf/manifest/vendor.qti.hardware.vibrator.service.xml" \
+            "${root}/vendor/lib64/libaachaptics.so" \
+            "${root}/vendor/lib64/libqtivibratoreffect.xiaomi.so" \
+            "${root}/vendor/lib64/libqtivibratoreffectoffload.so" \
+            "${root}/vendor/lib64/vendor.qti.hardware.vibrator.impl.so" \
+            "${root}/vendor/lib64/vendor.qti.hardware.vibratorOL.impl.so" \
+            "${root}/vendor/lib64/vendor.qti.hardware.vibratorSel.impl.so"; do
+            test ! -e "${legacy_vibrator_file}"
+          done
 
           while IFS= read -r -d '' file; do
             needed="$(readelf -d "${file}" 2>/dev/null || true)"
@@ -151,22 +261,110 @@ jobs:
 
           test -f "${root}/vendor/etc/init/marble-security.rc"
           test -f "${root}/system/etc/recovery.fstab"
+          test -f "${root}/system/etc/vintf/manifest.xml"
+          test -f "${root}/vendor/etc/vintf/manifest.xml"
           test -f "${root}/vendor/etc/vintf/manifest/marble-security.xml"
-          test -f "${root}/vendor/etc/vintf/manifest/vendor.qti.hardware.vibrator.service.xml"
+          cmp -s \
+            "${TWRP_SOURCE}/device/xiaomi/marble/recovery.fstab" \
+            "${TWRP_SOURCE}/device/xiaomi/marble/recovery/root/system/etc/recovery.fstab"
+          grep -Eq '^/dev/block/(by-name|bootdevice/by-name)/metadata[[:space:]]+/metadata[[:space:]].*[[:space:],]wrappedkey([[:space:],]|$)' \
+            "${root}/system/etc/recovery.fstab"
+          grep -Fq 'android.hidl.manager' \
+            "${root}/system/etc/vintf/manifest.xml"
+          grep -Fq 'type="device"' \
+            "${root}/vendor/etc/vintf/manifest.xml"
+          grep -Fq 'hwservicemanager.ready=true && property:vendor.sys.listeners.registered=true' \
+            "${root}/vendor/etc/init/marble-security.rc"
+          grep -Fq 'hwservicemanager.ready=true && property:vendor.sys.listeners.registered=true' \
+            "${root}/vendor/etc/init/android.hardware.security.keymint-service-qti.rc"
 
-          wifi_runtime="$(find "${root}" \( -type f -o -type l \) \( \
-              -name wpa_cli -o \
-              -name wpa_supplicant -o \
-              -name hostapd -o \
-              -name ttyd -o \
-              -name microhttpd \
-            \) -print -quit)"
-          if [[ -n "${wifi_runtime}" ]]; then
-            echo 'Unexpected WLAN runtime found in the recovery ramdisk.' >&2
-            exit 1
-          fi
+          case "${TWRP_PRODUCT}" in
+            twrp_marble)
+              grep -qx 'TW_NO_NETWORK := true' \
+                "${TWRP_SOURCE}/device/xiaomi/marble/BoardConfig.mk"
+              for file in \
+                "${root}/system/bin/marble-wifi-control" \
+                "${root}/system/bin/marble-wifi-dhcp" \
+                "${root}/system/bin/marble_recovery_wpa_cli" \
+                "${root}/system/bin/marble_recovery_wpa_supplicant" \
+                "${root}/system/bin/marble_wifi_halctl" \
+                "${root}/system/etc/init/marble-recovery-wifi.rc" \
+                "${root}/vendor/bin/hw/android.hardware.wifi@1.0-service" \
+                "${root}/vendor/etc/wifi/vendor_cmd.xml" \
+                "${root}/vendor/lib/modules/cfg80211.ko" \
+                "${root}/vendor/lib/modules/qca_cld3_qca6490.ko" \
+                "${root}/vendor/lib64/android.hardware.wifi@1.0.so" \
+                "${root}/vendor/lib64/libcld80211.so" \
+                "${root}/vendor/lib64/libwifi-hal-ctrl.so" \
+                "${root}/vendor/lib64/libwifi-hal-qcom.so" \
+                "${root}/vendor/lib64/libwifi-hal.so" \
+                "${root}/vendor/lib64/libwifi-system-iface.so"; do
+                test ! -e "${file}"
+              done
+              ;;
+            twrp_marble_wifi)
+              for file in \
+                "${root}/system/bin/dhcpdbg" \
+                "${root}/system/bin/marble-wifi-control" \
+                "${root}/system/bin/marble-wifi-dhcp" \
+                "${root}/system/bin/marble_recovery_wpa_cli" \
+                "${root}/system/bin/marble_recovery_wpa_supplicant" \
+                "${root}/system/bin/marble_wifi_halctl" \
+                "${root}/vendor/bin/hw/android.hardware.wifi@1.0-service"; do
+                test -x "${file}"
+              done
+              for file in \
+                "${root}/system/etc/init/marble-recovery-wifi.rc" \
+                "${root}/vendor/etc/wifi/marble_recovery_wpa_supplicant.conf" \
+                "${root}/vendor/etc/wifi/qca6490/WCNSS_qcom_cfg.ini" \
+                "${root}/vendor/etc/vintf/manifest/android.hardware.wifi@1.0-service.xml" \
+                "${root}/vendor/lib/modules/cfg80211.ko" \
+                "${root}/vendor/lib/modules/qca_cld3_qca6490.ko"; do
+                test -r "${file}"
+              done
+              grep -Fq 'update_config=0' \
+                "${root}/vendor/etc/wifi/marble_recovery_wpa_supplicant.conf"
+              ! grep -Eq '^(network|ssid|psk|sae_password)=' \
+                "${root}/vendor/etc/wifi/marble_recovery_wpa_supplicant.conf"
+              grep -Fq 'service vendor.wifi_hal_legacy' \
+                "${root}/system/etc/init/marble-recovery-wifi.rc"
+              test "$(grep -Fc 'seclabel u:r:recovery:s0' \
+                "${root}/system/etc/init/marble-recovery-wifi.rc")" -eq 2
+              grep -Fq 'Authentication rejected; check the password and security mode' \
+                "${TWRP_SOURCE}/bootable/recovery/gui/action.cpp"
+              grep -Fq 'net.${iface}.${property}' \
+                "${root}/system/bin/marble-wifi-control"
+              grep -Fq 'CONFIG_CTRL_IFACE_DIR=\"/data/vendor/wifi/wpa/sockets\"' \
+                "${TWRP_SOURCE}/external/wpa_supplicant_8/wpa_supplicant/Android.bp"
+              (
+                cd "${TWRP_SOURCE}/device/xiaomi/marble/wifi/prebuilt"
+                sha256sum -c SHA256SUMS
+              )
+              while read -r expected relative; do
+                printf '%s  %s/%s\n' "${expected}" "${root}" "${relative}"
+              done < "${TWRP_SOURCE}/device/xiaomi/marble/wifi/prebuilt/SHA256SUMS" |
+                sha256sum -c -
+              cmp -s \
+                "${TWRP_SOURCE}/device/xiaomi/marble/wifi/prebuilt/vendor/etc/wifi/qca6490/WCNSS_qcom_cfg.ini" \
+                "${root}/vendor/firmware/wlan/qca_cld/qca6490/WCNSS_qcom_cfg.ini"
+              xmllint --noout \
+                "${root}/vendor/etc/vintf/manifest/android.hardware.wifi@1.0-service.xml"
+              "${TWRP_SOURCE}/${OUT_DIR}/host/linux-x86/bin/host_init_verifier" \
+                "${root}/system/etc/init/marble-recovery-wifi.rc"
+              for module in cfg80211.ko qca_cld3_qca6490.ko; do
+                case "$(modinfo -F vermagic "${root}/vendor/lib/modules/${module}")" in
+                  5.10.261-Glow-v5.0*)
+                    ;;
+                  *)
+                    echo "Unexpected ${module} vermagic." >&2
+                    exit 1
+                    ;;
+                esac
+              done
+              ;;
+          esac
 
-          "${TWRP_SOURCE}/out/host/linux-x86/bin/avbtool" \
+          "${TWRP_SOURCE}/${OUT_DIR}/host/linux-x86/bin/avbtool" \
             info_image --image "${image}"
           sha256sum "${image}" | tee "${GITHUB_WORKSPACE}/recovery.sha256"
           file "${image}"
@@ -175,10 +373,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: twrp-16-marble-${{ github.run_number }}
+          name: twrp-16-marble-${{ inputs.product }}-${{ github.run_number }}
           if-no-files-found: warn
           retention-days: 14
           path: |
             build.log
             recovery.sha256
-            ${{ env.PRODUCT_OUT }}/recovery.img
+            ${{ env.TWRP_SOURCE }}/out/target/product/marble/recovery.img
+            ${{ env.TWRP_SOURCE }}/out-marble-wifi/target/product/marble/recovery.img
