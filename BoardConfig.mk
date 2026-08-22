@@ -78,6 +78,10 @@ TW_INCLUDE_CRYPTO := true
 TW_INCLUDE_CRYPTO_FBE := true
 TW_INCLUDE_FBE_METADATA_DECRYPT := true
 TW_USE_FSCRYPT_POLICY := 2
+# The bundled recovery security stack decrypts current userdata without
+# system APEX. Runtime loop mounting is broken on this kernel and only adds a
+# failed probe before metadata decryption, so keep the recovery ROM-neutral.
+TW_EXCLUDE_APEX := true
 PLATFORM_VERSION := 99.87.36
 PLATFORM_VERSION_LAST_STABLE := $(PLATFORM_VERSION)
 PLATFORM_SECURITY_PATCH := 2099-12-31

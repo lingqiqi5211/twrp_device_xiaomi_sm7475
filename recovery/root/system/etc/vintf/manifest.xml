@@ -1,0 +1,17 @@
+<!--
+    Recovery needs a framework main manifest before libvintf will merge the
+    fragments in /system/etc/vintf/manifest. Declaring the HIDL service
+    manager keeps the legacy Qualcomm Keymaster and Gatekeeper stack enabled.
+-->
+<manifest version="4.0" type="framework">
+    <hal format="hidl">
+        <name>android.hidl.manager</name>
+        <transport>hwbinder</transport>
+        <version>1.2</version>
+        <interface>
+            <name>IServiceManager</name>
+            <instance>default</instance>
+        </interface>
+        <fqname>@1.2::IServiceManager/default</fqname>
+    </hal>
+</manifest>

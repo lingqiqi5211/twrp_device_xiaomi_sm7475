@@ -1,0 +1,6 @@
+<!--
+    libvintf only loads /vendor/etc/vintf/manifest/*.xml after a main device
+    manifest is present. The security HAL declarations remain in focused
+    fragments so this file can stay independent of a particular ROM release.
+-->
+<manifest version="4.0" type="device" target-level="6"/>
