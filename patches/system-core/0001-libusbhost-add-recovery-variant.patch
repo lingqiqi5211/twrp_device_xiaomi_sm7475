@@ -1,0 +1,12 @@
+diff --git a/libusbhost/Android.bp b/libusbhost/Android.bp
+index f8a73ad..ff2d1ac 100644
+--- a/libusbhost/Android.bp
++++ b/libusbhost/Android.bp
+@@ -21,6 +21,7 @@ package {
+ cc_library {
+     name: "libusbhost",
+     vendor_available: true,
++    recovery_available: true,
+     host_supported: true,
+     srcs: ["usbhost.c"],
+     cflags: ["-Werror"],

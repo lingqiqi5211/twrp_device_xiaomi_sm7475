@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <!--
+      Builds bootable/recovery from the marble source branch instead of the
+      upstream branch plus a patch series.
+
+      Copy this file into .repo/local_manifests/ and then sync
+      bootable/recovery. See patches/README.md for the exact commands.
+
+      The branch tracks TWRP-Test/android_bootable_recovery twrp-16.0 and
+      carries the marble recovery changes as ordinary commits.
+  -->
+  <remote name="marble" fetch="https://github.com/lingqiqi5211" />
+
+  <remove-project name="android_bootable_recovery" />
+
+  <project path="bootable/recovery" name="android_bootable_recovery"
+           remote="marble" revision="marble-twrp16" />
+</manifest>
