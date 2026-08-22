@@ -1,0 +1,28 @@
+# Legacy HIDL services remain necessary for vendor blobs and older userdata;
+# the AIDL KeyMint service is started separately for Android 16+ userdata.
+on init
+    start vendor.qseecomd
+    start gatekeeper-1-0
+    start vendor.keymaster-4-1
+
+service vendor.qseecomd /system/bin/qseecomd
+    socket notify-topology stream 660 system drmrpc
+    class core
+    user root
+    group root drmrpc
+    setenv LD_LIBRARY_PATH /vendor/lib64:/vendor/lib64/hw:/system/lib64:/sbin
+    seclabel u:r:recovery:s0
+
+service gatekeeper-1-0 /system/bin/android.hardware.gatekeeper@1.0-service-qti
+    class early_hal
+    user root
+    group root
+    setenv LD_LIBRARY_PATH /vendor/lib64:/vendor/lib64/hw:/system/lib64:/sbin
+    seclabel u:r:recovery:s0
+
+service vendor.keymaster-4-1 /system/bin/android.hardware.keymaster@4.1-service-qti
+    class early_hal
+    user root
+    group root drmrpc
+    setenv LD_LIBRARY_PATH /vendor/lib64:/vendor/lib64/hw:/system/lib64:/sbin
+    seclabel u:r:recovery:s0

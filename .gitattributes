@@ -1,0 +1,12 @@
+* text=auto eol=lf
+
+*.bin -text
+*.ko -text
+*.png -text
+*.so -text
+
+recovery/root/system/bin/android.hardware.* -text
+recovery/root/system/bin/batterysecret -text
+recovery/root/system/bin/crash_dump* -text
+recovery/root/system/bin/qseecomd -text
+recovery/root/system/bin/vendor.* -text

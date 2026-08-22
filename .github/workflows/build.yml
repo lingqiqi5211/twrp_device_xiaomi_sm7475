@@ -1,0 +1,184 @@
+name: Build TWRP 16 for marble
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: twrp16-marble-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  recovery:
+    name: recovery.img
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 360
+    env:
+      TWRP_SOURCE: ${{ runner.temp }}/twrp-src
+      PRODUCT_OUT: ${{ runner.temp }}/twrp-src/out/target/product/marble
+
+    steps:
+      - name: Check out device tree
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          path: device-tree
+
+      - name: Check build host capacity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${TWRP_SOURCE}"
+          available_kib="$(df -Pk "${TWRP_SOURCE}" | awk 'NR == 2 { print $4 }')"
+          memory_kib="$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo)"
+          if (( available_kib < 125829120 )); then
+            echo 'TWRP 16 requires at least 120 GiB of free build disk.' >&2
+            exit 1
+          fi
+          if (( memory_kib < 16777216 )); then
+            echo 'TWRP 16 requires at least 16 GiB of RAM.' >&2
+            exit 1
+          fi
+          df -h "${TWRP_SOURCE}"
+          free -h
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ca-certificates curl flex \
+            g++-multilib gcc-multilib git gnupg gperf imagemagick \
+            lib32ncurses-dev lib32readline-dev lib32z1-dev libelf-dev \
+            liblz4-tool libncurses-dev libssl-dev libxml2-utils lz4 lzop \
+            pngcrush repo rsync schedtool squashfs-tools unzip x11proto-core-dev \
+            xsltproc zip zlib1g-dev zstd
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+          df -h "${TWRP_SOURCE}"
+
+      - name: Sync TWRP 16 source
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo install -d -o "$(id -u)" -g "$(id -g)" "${TWRP_SOURCE}"
+          cd "${TWRP_SOURCE}"
+          repo init \
+            -u https://github.com/TWRP-Test/platform_manifest_twrp_aosp.git \
+            -b twrp-16.0 \
+            --depth=1 \
+            --no-clone-bundle \
+            --partial-clone \
+            --clone-filter=blob:limit=10M
+          repo sync \
+            -c \
+            --fail-fast \
+            --force-sync \
+            --no-clone-bundle \
+            --no-tags \
+            --optimized-fetch \
+            --prune \
+            -j2
+          du -sh "${TWRP_SOURCE}"
+          df -h "${TWRP_SOURCE}"
+
+      - name: Install device tree
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "${TWRP_SOURCE}/device/xiaomi/marble"
+          rsync -a --delete \
+            --exclude=.git \
+            --exclude=.github \
+            "${GITHUB_WORKSPACE}/device-tree/" \
+            "${TWRP_SOURCE}/device/xiaomi/marble/"
+          grep -qx 'TW_NO_NETWORK := true' \
+            "${TWRP_SOURCE}/device/xiaomi/marble/BoardConfig.mk"
+
+      - name: Build recovery image
+        shell: bash
+        run: |
+          set -o pipefail
+          cd "${TWRP_SOURCE}"
+          export ALLOW_MISSING_DEPENDENCIES=true
+          source build/envsetup.sh
+          lunch twrp_marble-bp2a-eng
+          m -j4 recoveryimage 2>&1 | tee "${GITHUB_WORKSPACE}/build.log"
+
+      - name: Verify image and runtime composition
+        shell: bash
+        run: |
+          set -euxo pipefail
+          image="${PRODUCT_OUT}/recovery.img"
+          root="${PRODUCT_OUT}/recovery/root"
+          test -s "${image}"
+          test "$(stat -c %s "${image}")" -le 104857600
+
+          for file in \
+            "${root}/system/bin/qseecomd" \
+            "${root}/system/bin/android.hardware.gatekeeper@1.0-service-qti" \
+            "${root}/system/bin/android.hardware.keymaster@4.1-service-qti" \
+            "${root}/system/bin/android.hardware.security.keymint-service-qti" \
+            "${root}/system/bin/vendor.qti.hardware.vibrator.service" \
+            "${root}/vendor/lib64/libqtikeymint.so"; do
+            test -x "${file}" || test -r "${file}"
+          done
+
+          for file in \
+            "${root}/system/bin/android.hardware.security.keymint-service-qti" \
+            "${root}/vendor/lib64/libqtikeymint.so"; do
+            needed="$(readelf -d "${file}")"
+            if grep -Fq -- '-ndk_platform.so' <<<"${needed}"; then
+              echo "Legacy ndk_platform dependency remains in ${file}." >&2
+              exit 1
+            fi
+            grep -Fq 'android.hardware.security.keymint-V4-ndk.so' <<<"${needed}"
+            grep -Fq 'android.hardware.security.rkp-V3-ndk.so' <<<"${needed}"
+          done
+
+          needed="$(readelf -d "${root}/system/bin/vendor.qti.hardware.vibrator.service")"
+          grep -Fq 'android.hardware.vibrator-V2-ndk.so' <<<"${needed}"
+
+          while IFS= read -r -d '' file; do
+            needed="$(readelf -d "${file}" 2>/dev/null || true)"
+            if grep -Fq -- '-ndk_platform.so' <<<"${needed}"; then
+              echo "Legacy ndk_platform dependency remains in ${file}." >&2
+              exit 1
+            fi
+          done < <(find "${root}" -type f -print0)
+
+          test -f "${root}/vendor/etc/init/marble-security.rc"
+          test -f "${root}/system/etc/recovery.fstab"
+          test -f "${root}/vendor/etc/vintf/manifest/marble-security.xml"
+          test -f "${root}/vendor/etc/vintf/manifest/vendor.qti.hardware.vibrator.service.xml"
+
+          wifi_runtime="$(find "${root}" \( -type f -o -type l \) \( \
+              -name wpa_cli -o \
+              -name wpa_supplicant -o \
+              -name hostapd -o \
+              -name ttyd -o \
+              -name microhttpd \
+            \) -print -quit)"
+          if [[ -n "${wifi_runtime}" ]]; then
+            echo 'Unexpected WLAN runtime found in the recovery ramdisk.' >&2
+            exit 1
+          fi
+
+          "${TWRP_SOURCE}/out/host/linux-x86/bin/avbtool" \
+            info_image --image "${image}"
+          sha256sum "${image}" | tee "${GITHUB_WORKSPACE}/recovery.sha256"
+          file "${image}"
+
+      - name: Upload build output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: twrp-16-marble-${{ github.run_number }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            build.log
+            recovery.sha256
+            ${{ env.PRODUCT_OUT }}/recovery.img
