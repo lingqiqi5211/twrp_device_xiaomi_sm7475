@@ -30,29 +30,44 @@ on early-fs
     write /proc/sys/walt/sched_lib_mask_force 255
 
 on init
-    start vendor.boot-hal-1-2
+    # qseecomd needs the UFS by-name links before its RPMB listener starts.
+    # Starting it only after the link exists also makes the security HALs
+    # available before recovery attempts metadata decryption.
+    wait /dev/block/platform/soc/${ro.boot.bootdevice} 10
+    symlink /dev/block/platform/soc/${ro.boot.bootdevice} /dev/block/bootdevice
+    wait /dev/block/bootdevice/by-name/ssd 10
+    start vendor.qseecomd
 
 on fs
-    wait /dev/block/platform/soc/${ro.boot.bootdevice}
-    symlink /dev/block/platform/soc/${ro.boot.bootdevice} /dev/block/bootdevice
     write /proc/sys/kernel/firmware_config/force_sysfs_fallback 1
     chmod 0660 /dev/qseecom
     chown system drmrpc /dev/qseecom
     chmod 0664 /dev/ion
     chown system system /dev/ion
-    install_keyring
-
-on boot
-    setprop sys.usb.config adb
 
 on property:twrp.modules.loaded=true
-    # Mount firmware
+    # Mount firmware before starting the ADSP battery path.
     mkdir /firmware 0755 root root
     mount vfat /dev/block/bootdevice/by-name/modem${ro.boot.slot_suffix} /firmware ro
     # Load ADSP firmware for PMIC
     wait /sys/kernel/boot_adsp/boot
     write /sys/kernel/boot_adsp/boot 1
-    wait /sys/class/power_supply/battery
+    # The PMIC battery node appeared 3.3 seconds later on the tested kernel.
+    # Waiting here blocks init itself, including keystore control requests, so
+    # move that wait into a one-shot helper service.
+    start twrp-wait-for-battery
+
+on property:twrp.battery.ready=true
+    # Keep firmware mounted until the ADSP has created the battery supply.
+    # The helper also retries the firmware unmount after publishing readiness,
+    # because the kernel can retain a firmware file briefly after ADSP starts.
     start health-hal-2-1
     start batterysecret
-    umount /firmware
+
+service twrp-wait-for-battery /system/bin/sh /system/bin/waitforbattery.sh
+    class core
+    user root
+    group root
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
