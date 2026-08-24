@@ -43,8 +43,7 @@ lunch twrp_marble-bp2a-eng
 m recoveryimage
 ```
 
-The experimental Wi-Fi product has a separate output directory and prepares
-the pinned Android 16 `wpa_supplicant_8` source automatically:
+The experimental Wi-Fi product has a separate output directory:
 
 ```bash
 TWRP_SOURCE="$PWD" \
@@ -52,11 +51,27 @@ TWRP_PRODUCT=twrp_marble_wifi \
 bash device/xiaomi/marble/scripts/build.sh
 ```
 
-For the stable product, `scripts/build.sh` defaults to `twrp_marble`. Both
-products patch `system/core` so `libusbhost` offers a recovery variant; only
-`twrp_marble_wifi` fetches and patches `external/wpa_supplicant_8`. The
-recovery changes themselves are no longer patches. See `patches/README.md` for
-the pinned source revisions.
+For the stable product, `scripts/build.sh` defaults to `twrp_marble`.
+
+Nothing here patches the Android source any more. The recovery changes live as
+commits on the `marble-twrp16` branch; `libtwrpmtp-ffs` links AOSP's own
+`libusbhost`, whose recovery variant TWRP declared upstream in `system/core`
+`ea939a2`; and the two recovery Wi-Fi binaries come from TWRP's own
+`external/wpa_supplicant_8` fork, which its manifest already selects in place of
+the AOSP project. `scripts/apply-patches.sh` now only checks that
+`bootable/recovery` really is the marble branch, so a forgotten local manifest
+fails loudly instead of producing an image without those changes.
+
+Keep every project synced, not just `bootable/recovery`: the `vendor/twrp` fork
+and the `wpa_supplicant_8` and `libusbhost` patches this tree used to carry were
+all fixes TWRP had already landed upstream.
+
+A checkout synced before TWRP's manifest replaced `external/wpa_supplicant_8`
+still holds the AOSP project, and `repo sync` refuses to switch it in place
+("unsupported checkout state"). Delete `external/wpa_supplicant_8`,
+`.repo/projects/external/wpa_supplicant_8.git` and
+`.repo/project-objects/platform/external/wpa_supplicant_8.git`, then sync that
+project again.
 
 All files under `scripts/` and recovery runtime shell scripts must be committed
 with Git mode `100755`; CI rejects a checkout that loses their executable bit.

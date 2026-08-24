@@ -6,7 +6,7 @@
       TWRP minimal manifest strips.
 
       Copy this file into .repo/local_manifests/ and then sync
-      bootable/recovery. See patches/README.md for the exact commands.
+      bootable/recovery. See the README for the exact commands.
 
       The branch tracks TWRP-Test/android_bootable_recovery twrp-16.0 and
       carries the marble recovery changes as ordinary commits.

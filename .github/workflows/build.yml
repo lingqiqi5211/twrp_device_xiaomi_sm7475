@@ -127,10 +127,11 @@ jobs:
             "${TWRP_SOURCE}/device/xiaomi/marble/"
           for script in \
             recovery/root/system/bin/beforemodules.sh \
+            recovery/root/system/bin/runatboot.sh \
+            recovery/root/system/bin/unzip-zip64 \
             recovery/root/system/bin/waitforbattery.sh \
             scripts/apply-patches.sh \
             scripts/build.sh \
-            scripts/prepare-wifi-source.sh \
             wifi/marble-wifi-control.sh \
             wifi/marble-wifi-dhcp.sh; do
             test -x "${GITHUB_WORKSPACE}/device-tree/${script}"
@@ -141,9 +142,6 @@ jobs:
         run: |
           set -eo pipefail
           cd "${TWRP_SOURCE}"
-          if [[ "${TWRP_PRODUCT}" == "twrp_marble_wifi" ]]; then
-            bash device/xiaomi/marble/scripts/prepare-wifi-source.sh "${TWRP_SOURCE}"
-          fi
           bash device/xiaomi/marble/scripts/apply-patches.sh \
             "${TWRP_SOURCE}" "${TWRP_PRODUCT}"
           export ALLOW_MISSING_DEPENDENCIES=true

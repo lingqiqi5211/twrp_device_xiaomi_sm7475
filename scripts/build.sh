@@ -41,7 +41,6 @@ if [[ "${tree_root}" != "${target_tree}" ]]; then
 fi
 
 if [[ "${twrp_product}" == "twrp_marble_wifi" ]]; then
-    bash "${target_tree}/scripts/prepare-wifi-source.sh" "${twrp_source}"
     if [[ -z "${OUT_DIR:-}" ]]; then
         export OUT_DIR="out-marble-wifi"
     fi

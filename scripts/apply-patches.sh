@@ -33,7 +33,7 @@ fi
 # at depth 1, so the branch tip has no parents and an ancestry test can never
 # succeed.
 recovery_markers=(
-    "minuitwrp/events.cpp:open_ff_haptics"
+    "twrpminui/events.cpp:open_ff_haptics"
     "gui/action.cpp:RunWpaCli"
     "gui/scrolllist.cpp:mBottomPaddingApplied"
 )
@@ -44,99 +44,22 @@ for marker in "${recovery_markers[@]}"; do
         echo "bootable/recovery is missing the marble recovery changes" >&2
         echo "  (${marker_file} has no ${marker_symbol})" >&2
         echo "Copy manifests/marble-twrp16.xml into .repo/local_manifests/," >&2
-        echo "then sync bootable/recovery. See patches/README.md." >&2
+        echo "then sync bootable/recovery. See the README." >&2
         exit 1
     fi
 done
 
-apply_patch_series() {
-    local repo="$1"
-    local series_name="$2"
-    local patch_pattern="$3"
-    local patch
-    local series_hash
-    local state_dir
-    local state_file
-    local -a patches
-    local -a touched_files
-
-    mapfile -t patches < <(compgen -G "${patch_pattern}" | sort)
-    if [[ "${#patches[@]}" -eq 0 ]]; then
-        return 0
-    fi
-
-    series_hash="$({
-        for patch in "${patches[@]}"; do
-            sha256sum "${patch}" | cut -d' ' -f1
-        done
-    } | sha256sum | cut -d' ' -f1)"
-    state_dir="$(git -C "${repo}" rev-parse --absolute-git-dir)/twrp-marble-patches"
-    state_file="${state_dir}/${series_name}-${series_hash}.sha256"
-
-    if [[ -f "${state_file}" ]] &&
-            (cd "${repo}" && sha256sum --status -c "${state_file}"); then
-        for patch in "${patches[@]}"; do
-            echo "Already applied: ${patch}"
-        done
-        return 0
-    fi
-
-    for patch in "${patches[@]}"; do
-        if git -C "${repo}" apply --check "${patch}" 2>/dev/null; then
-            git -C "${repo}" apply "${patch}"
-            echo "Applied: ${patch}"
-        elif git -C "${repo}" apply --check --ignore-space-change "${patch}" 2>/dev/null; then
-            git -C "${repo}" apply --ignore-space-change "${patch}"
-            echo "Applied with line-ending compatibility: ${patch}"
-        elif git -C "${repo}" apply --reverse --check "${patch}" 2>/dev/null; then
-            echo "Already applied: ${patch}"
-        elif git -C "${repo}" apply --reverse --check --ignore-space-change "${patch}" 2>/dev/null; then
-            echo "Already applied with line-ending compatibility: ${patch}"
-        else
-            echo "Patch does not apply cleanly: ${patch}" >&2
-            echo "Use a clean source checkout if the patch series changed." >&2
-            exit 1
-        fi
-    done
-
-    mapfile -t touched_files < <(
-        sed -n 's|^+++ b/||p' "${patches[@]}" | grep -v '^/dev/null$' | sort -u
-    )
-    if [[ "${#touched_files[@]}" -eq 0 ]]; then
-        echo "No patched files found for series: ${series_name}" >&2
-        exit 1
-    fi
-    mkdir -p "${state_dir}"
-    (cd "${repo}" && sha256sum "${touched_files[@]}") > "${state_file}"
-}
-
-core_repo="${twrp_source}/system/core"
-if ! git -C "${core_repo}" rev-parse --git-dir >/dev/null 2>&1; then
-    echo "system/core repository not found at: ${core_repo}" >&2
-    exit 1
-fi
-
-apply_patch_series \
-    "${core_repo}" \
-    system-core \
-    "${tree_root}/patches/system-core/*.patch"
-
-wpa_repo="${twrp_source}/external/wpa_supplicant_8"
+# The Wi-Fi product's supplicant binaries are defined only in TWRP's
+# external/wpa_supplicant_8 fork. With the AOSP project checked out instead,
+# ALLOW_MISSING_DEPENDENCIES would drop them and build a Wi-Fi-less image
+# without complaining.
 if [[ "${twrp_product}" == "twrp_marble_wifi" ]]; then
-    if ! git -C "${wpa_repo}" rev-parse --git-dir >/dev/null 2>&1; then
-        echo "wpa_supplicant_8 repository is required for the Wi-Fi patches" >&2
+    wpa_bp="${twrp_source}/external/wpa_supplicant_8/wpa_supplicant/Android.bp"
+    if ! grep -q 'name: "wpa_cli_recovery"' "${wpa_bp}" 2>/dev/null; then
+        echo "external/wpa_supplicant_8 is not TWRP's fork" >&2
+        echo "  (${wpa_bp} defines no wpa_cli_recovery)" >&2
+        echo "repo sync refuses to switch it in place; see the README for the" >&2
+        echo "paths to delete before syncing that project again." >&2
         exit 1
     fi
-    wpa_revision="3ef7b491990ee71f3cbad5c70b274430fa8d5c13"
-    actual_wpa_revision="$(git -C "${wpa_repo}" rev-parse HEAD)"
-    if [[ "${actual_wpa_revision}" != "${wpa_revision}" ]]; then
-        echo "Unexpected wpa_supplicant_8 revision: ${actual_wpa_revision}" >&2
-        echo "Expected: ${wpa_revision}" >&2
-        exit 1
-    fi
-
-    apply_patch_series \
-        "${wpa_repo}" \
-        external-wpa-supplicant-8 \
-        "${tree_root}/patches/external-wpa-supplicant-8/*.patch"
 fi
