@@ -2,28 +2,15 @@
 
 # ZIP64-safe front-end for unzip.
 #
-# /system/bin/unzip is a link to ziptool (libziparchive). It reads the central
-# directory of a >4 GiB archive correctly -- "unzip -l" reports the true entry
-# sizes -- but it cannot extract an entry whose compressed data lies past the
-# 4 GiB mark of the archive:
+# /system/bin/unzip is a link to ziptool, which lists a >4 GiB archive correctly
+# but returns a zlib error and no data for an entry past the archive's 4 GiB
+# mark. HyperOS "2in1" packages keep super.zst at the tail of a ~6 GiB zip and
+# their update-binary pipes that empty stream into zstd and still exits 0, so
+# the flash reports success while the ROM stays on the old build.
 #
-#   unzip -p marble-2in1_full-OS4.0.0.14...zip super.zst
-#     -> 0 bytes, exit 1, "unzip: failed to extract super.zst: Zlib error"
-#     -> logcat: ziparchive: Zip: inflate zerr=-5 (aIn=10983 aOut=0)
-#
-# HyperOS "2in1" packages keep super.zst (6 GiB here) at the tail of a ~6 GiB
-# zip, so their update-binary pipes an empty stream into zstd and writes
-# nothing to super. Nothing in that script checks for the failure, so the
-# flash reports success while the ROM stays on the old build. busybox unzip is
-# no help either: it has no ZIP64 support and fails with "short read". 7za
-# reads these archives correctly.
-#
-# Archives above 4 GiB therefore go through 7za; everything else keeps using
-# ziptool with its original behaviour. Entries of a small archive can never
-# sit past the 4 GiB mark, so that split is exhaustive.
-#
-# The two tool paths can be overridden to dry-run the argument translation off
-# the device.
+# Archives above 4 GiB go through 7za; everything else keeps ziptool's own
+# behaviour, and a smaller archive cannot have an entry past the mark. The tool
+# paths are overridable to dry-run the argument translation off the device.
 
 REAL_UNZIP="${ZIP64_REAL_UNZIP:-/system/bin/.ziptool/unzip}"
 SEVENZIP="${ZIP64_SEVENZIP:-/system/bin/7za}"

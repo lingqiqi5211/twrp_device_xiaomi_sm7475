@@ -90,15 +90,10 @@ rm -f -- \
 
 export ALLOW_MISSING_DEPENDENCIES=true
 
-# soong_build runs with the Go collector switched off: blueprint calls
-# debug.SetGCPercent(-1), so the analysis heap only ever grows. On this tree it
-# peaks near 20 GiB, which OOM-kills an 18 GiB machine, and swap does not help
-# because the growth outruns reclaim -- the killer fires with swap untouched.
-# GOMEMLIMIT makes the runtime collect as it approaches a ceiling instead, and
-# soong_ui forwards SOONG_GOMEMLIMIT for exactly that purpose. Measured here:
-# 20.2 GiB peak / 200 s of analysis unlimited versus 13.2 GiB / 206 s at 12 GiB,
-# so the ceiling costs a few percent of wall clock and makes the build fit.
-# A value the caller already chose is left alone.
+# Blueprint calls debug.SetGCPercent(-1), so soong_build's analysis heap only
+# ever grows -- around 20 GiB on this tree, which OOM-kills a smaller machine
+# before swap can help. SOONG_GOMEMLIMIT makes the runtime collect as it nears a
+# ceiling instead, for a few percent of wall clock. A caller's value wins.
 if [[ -z "${SOONG_GOMEMLIMIT:-}" ]] && [[ -r /proc/meminfo ]]; then
     mem_kib="$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)"
     if [[ -n "${mem_kib}" ]] && [[ "${mem_kib}" -gt 0 ]]; then

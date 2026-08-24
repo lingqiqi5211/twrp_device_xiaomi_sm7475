@@ -16,12 +16,9 @@ load_CN() {
     echo "I:unified-script: setting Redmi Note 12 Turbo props" >> "${LOGF}"
 }
 
-# Route >4 GiB archives away from ziptool. HyperOS "2in1" packages keep
-# super.zst at the tail of a ~6 GiB zip, and ziptool cannot extract an entry
-# whose data lies past the archive's 4 GiB mark: it returns a zlib error after
-# writing nothing. The package's update-binary pipes that empty stream into
-# zstd, writes nothing to super and still exits 0, so the flash reports success
-# while the ROM stays on the old build. See unzip-zip64 for the details.
+# Route >4 GiB archives away from ziptool, which cannot extract past an
+# archive's 4 GiB mark and makes a HyperOS flash a silent no-op. See
+# unzip-zip64.
 install_zip64_unzip() {
     if [ ! -x /system/bin/unzip-zip64 ] || [ ! -x /system/bin/7za ] ||
             [ ! -x /system/bin/ziptool ]; then

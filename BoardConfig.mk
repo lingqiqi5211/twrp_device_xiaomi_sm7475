@@ -114,12 +114,9 @@ RECOVERY_LIBRARY_SOURCE_FILES += \
     $(TARGET_OUT_SHARED_LIBRARIES)/libion.so \
     $(TARGET_OUT_SHARED_LIBRARIES)/libnetutils.so
 
-# lpdumpd needs two libraries the recovery ramdisk does not carry:
-# libfs_mgr_binder, which it links directly, and libsnapshot, which liblpdump
-# pulls in one level deeper. Missing either one makes it die with "CANNOT LINK
-# EXECUTABLE", and every lpdump call then ends in "Cannot get lpdump service",
-# so a flashing script cannot read the super layout. lptools resolves fully on
-# its own and works either way.
+# lpdumpd links libfs_mgr_binder directly and reaches libsnapshot through
+# liblpdump; without either it fails to link and every lpdump call reports
+# "Cannot get lpdump service". lptools resolves on its own.
 TARGET_RECOVERY_DEVICE_MODULES += \
     libfs_mgr_binder \
     libsnapshot
@@ -167,30 +164,12 @@ RECOVERY_BINARY_SOURCE_FILES += \
     $(TARGET_OUT_EXECUTABLES)/debuggerd \
     $(TARGET_OUT_EXECUTABLES)/strace
 
-# debuggerd and crash_dump are built from source. Neither AOSP module declares
-# recovery_available, but TARGET_RECOVERY_DEVICE_MODULES builds the platform
-# variant and RECOVERY_BINARY_SOURCE_FILES copies it into the ramdisk, which is
-# the route debuggerd and strace above already take.
-#
-# crash_dump also needs libnative_bridge_guest_state_accessor from
-# frameworks/libs/native_bridge_support, a project TWRP's minimal manifest
-# strips and manifests/marble-twrp16.xml puts back. Without it the module could
-# not be built at all, so this tree used to carry crash_dump and libprocinfo as
-# prebuilt blobs lifted from an Android 13 ramdisk. Both were dead on arrival:
-# crash_dump64 could not resolve unwindstack::Regs::RemoteGet and debuggerd
-# could not resolve procinfo::SetError, because this tree's libunwindstack and
-# libprocinfo have both moved on. Building all three from source removes the
-# skew instead of trading one broken binary for the other.
-#
-# Upstream moved crash_dump into the com.android.runtime APEX, so it installs
-# under $(PRODUCT_OUT)/apex and never appears in $(TARGET_OUT_EXECUTABLES).
-# This recovery has no APEX mounts, but bionic hardcodes the destination:
-# debuggerd_handler.cpp defines CRASH_DUMP_PATH as /system/bin/crash_dump64 and
-# linker64 carries that literal, so copying the APEX output to /system/bin is
-# what the crash path actually looks for.
-#
-# crash_dump32 is not built: it was the only 32-bit ELF in the ramdisk and there
-# is no /system/lib for it to link against, so it could never have run.
+# None of these declare recovery_available, so build the platform variant and
+# copy it in, as debuggerd and strace above do. crash_dump needs
+# frameworks/libs/native_bridge_support, which marble-twrp16.xml restores, and
+# it now ships inside the com.android.runtime APEX -- nothing mounts APEX here,
+# but bionic hardcodes CRASH_DUMP_PATH as /system/bin/crash_dump64, so the APEX
+# output is copied there. No crash_dump32: there is no /system/lib to link to.
 TARGET_RECOVERY_DEVICE_MODULES += \
     crash_dump \
     libdebuggerd_client \

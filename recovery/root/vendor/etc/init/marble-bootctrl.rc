@@ -1,16 +1,10 @@
-# The QTI boot control HAL. AOSP installs android.hardware.boot@1.2-service
-# into recovery as a "disabled" service, so nothing ever starts it: every
-# bootctl call then fails with "Error getting bootctrl v1.0 module", and a
-# flashing script that switches slots afterwards silently does nothing. The
-# stock vendor copy runs in class early_hal for the same reason.
-#
-# Unlike the security HALs this one talks to the GPT, not to a QSEE listener,
-# so it only has to wait for hwservicemanager.
+# AOSP installs android.hardware.boot@1.2-service disabled, so nothing starts it
+# and every bootctl call fails with "Error getting bootctrl v1.0 module" -- a
+# flashing script that switches slots then silently does nothing. This HAL talks
+# to the GPT rather than a QSEE listener, so hwservicemanager is all it needs.
 on property:hwservicemanager.ready=true
     start boot-hal-1-2
 
-# One cosmetic quirk survives: get_number_slots() reports 3, because the QTI
-# implementation counts by-name entries prefixed with "boot" and TWRP adds a
-# bare "boot" symlink next to boot_a and boot_b. Everything load-bearing --
-# current/active slot, suffixes, bootable and successful flags -- reads back
-# correctly, and nothing in TWRP or a flashing script uses the slot count.
+# get_number_slots() reports 3 because the QTI implementation counts by-name
+# entries prefixed "boot" and TWRP adds a bare "boot" symlink. Cosmetic: slots,
+# suffixes and flags all read back correctly and nothing uses the count.

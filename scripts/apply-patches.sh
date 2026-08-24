@@ -24,14 +24,10 @@ if ! git -C "${recovery_repo}" rev-parse --git-dir >/dev/null 2>&1; then
     exit 1
 fi
 
-# bootable/recovery now comes from the marble source branch, so there is no
-# recovery patch series left to apply. Fail early when the checkout is still
-# plain upstream, otherwise the build would silently drop every recovery
-# change instead of reporting a setup problem.
-#
-# Checked by content rather than by commit ancestry: repo clones this project
-# at depth 1, so the branch tip has no parents and an ancestry test can never
-# succeed.
+# No patch series left to apply; just fail early when bootable/recovery is still
+# plain upstream, which would otherwise build an image missing every marble
+# change. Checked by content, not ancestry: repo clones this project at depth 1,
+# so the branch tip has no parents for an ancestry test to walk.
 recovery_markers=(
     "twrpminui/events.cpp:open_ff_haptics"
     "gui/action.cpp:RunWpaCli"
