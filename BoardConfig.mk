@@ -116,6 +116,19 @@ RECOVERY_LIBRARY_SOURCE_FILES += \
     $(TARGET_OUT_SHARED_LIBRARIES)/libion.so \
     $(TARGET_OUT_SHARED_LIBRARIES)/libnetutils.so
 
+# lpdumpd needs two libraries the recovery ramdisk does not carry:
+# libfs_mgr_binder, which it links directly, and libsnapshot, which liblpdump
+# pulls in one level deeper. Missing either one makes it die with "CANNOT LINK
+# EXECUTABLE", and every lpdump call then ends in "Cannot get lpdump service",
+# so a flashing script cannot read the super layout. lptools resolves fully on
+# its own and works either way.
+TARGET_RECOVERY_DEVICE_MODULES += \
+    libfs_mgr_binder \
+    libsnapshot
+RECOVERY_LIBRARY_SOURCE_FILES += \
+    $(TARGET_OUT_SHARED_LIBRARIES)/libfs_mgr_binder.so \
+    $(TARGET_OUT_SHARED_LIBRARIES)/libsnapshot.so
+
 # Display / input
 TW_THEME := portrait_hdpi
 TW_CUSTOM_CLOCK_POS := 620
