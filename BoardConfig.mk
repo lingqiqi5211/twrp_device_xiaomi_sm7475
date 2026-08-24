@@ -11,7 +11,7 @@ BUILD_BROKEN_NINJA_USES_ENV_VARS += RTIC_MPGEN
 BUILD_BROKEN_PLUGIN_VALIDATION := \
     soong-libaosprecovery_defaults \
     soong-libguitwrp_defaults \
-    soong-libminuitwrp_defaults \
+    soong-libtwrpminui_defaults \
     soong-vold_defaults
 
 # Architecture

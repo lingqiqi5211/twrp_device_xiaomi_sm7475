@@ -182,9 +182,9 @@ jobs:
           done
 
           grep -Fq 'vibrate_with_ff' \
-            "${TWRP_SOURCE}/bootable/recovery/minuitwrp/events.cpp"
+            "${TWRP_SOURCE}/bootable/recovery/twrpminui/events.cpp"
           grep -Fq 'FF_CONSTANT' \
-            "${TWRP_SOURCE}/bootable/recovery/minuitwrp/events.cpp"
+            "${TWRP_SOURCE}/bootable/recovery/twrpminui/events.cpp"
           grep -Fq 'TW_VENDOR_MODULES_PREPARE_SCRIPT' \
             "${TWRP_SOURCE}/bootable/recovery/kernel_module_loader.cpp"
           grep -Fq 'prepare_script_completed' \
@@ -198,7 +198,7 @@ jobs:
           grep -Fq 'restart_period 1' \
             "${TWRP_SOURCE}/bootable/recovery/etc/init.rc"
           grep -aFq 'effect type %d' \
-            "${root}/system/lib64/libminuitwrp.so"
+            "${root}/system/lib64/libtwrpminui.so"
           test -x "${root}/system/bin/beforemodules.sh"
           test -x "${root}/system/bin/waitforbattery.sh"
           grep -aFq 'Running vendor module prepare script' \
