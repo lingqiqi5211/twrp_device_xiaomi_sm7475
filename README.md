@@ -58,6 +58,15 @@ the pinned source revisions.
 All files under `scripts/` and recovery runtime shell scripts must be committed
 with Git mode `100755`; CI rejects a checkout that loses their executable bit.
 
+Soong analyses this tree with the Go collector switched off, so soong_build's
+heap only grows: it peaks near 20 GiB and an 18 GiB machine is OOM-killed
+during analysis with swap untouched. `scripts/build.sh` therefore sets
+`SOONG_GOMEMLIMIT` to 70% of MemTotal unless the caller already chose a value,
+which makes the runtime collect as it approaches that ceiling. Measured on this
+tree: 20.2 GiB peak and 200 s of analysis unlimited, against 13.2 GiB and 206 s
+at a 12 GiB ceiling. Building with a bare `m recoveryimage` skips that default,
+so export `SOONG_GOMEMLIMIT` yourself on a machine with less than about 24 GiB.
+
 The manual GitHub Actions workflow targets a self-hosted Linux x64 runner with
 at least 120 GiB of free disk and 16 GiB of RAM. Standard GitHub-hosted runners
 do not have enough disk for this TWRP 16 source tree. The workflow uploads
