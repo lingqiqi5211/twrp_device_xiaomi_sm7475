@@ -14,12 +14,15 @@ git clone <this-repository> device/xiaomi/marble
 
 `bootable/recovery` is built from the marble source branch rather than the
 upstream branch plus a patch series, so select it with the bundled local
-manifest and sync that project again:
+manifest and sync it again. The same file restores
+`frameworks/libs/native_bridge_support`, which TWRP strips but `crash_dump`
+needs, so sync both:
 
 ```bash
 mkdir -p .repo/local_manifests
 cp device/xiaomi/marble/manifests/marble-twrp16.xml .repo/local_manifests/
-repo sync -c --no-tags --no-clone-bundle bootable/recovery
+repo sync -c --no-tags --no-clone-bundle \
+    bootable/recovery frameworks/libs/native_bridge_support
 ```
 
 The branch is `marble-twrp16` of

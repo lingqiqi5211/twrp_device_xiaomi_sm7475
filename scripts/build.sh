@@ -52,13 +52,16 @@ bash "${target_tree}/scripts/apply-patches.sh" "${twrp_source}" "${twrp_product}
 cd "${twrp_source}"
 
 # Removed prebuilts and relinked libraries can survive in an incremental out
-# directory even after their source files change. Purge only the obsolete
-# vibrator stack and the recovery packaging stamps so the ramdisk is rebuilt
-# from the current device tree and patched TWRP libraries.
+# directory even after their source files change. Purge the prebuilts this tree
+# has dropped and the recovery packaging stamps so the ramdisk is rebuilt from
+# the current device tree and patched TWRP libraries.
 product_out="${OUT_DIR:-out}/target/product/marble"
 for stale_file in \
+    recovery/root/system/bin/crash_dump32 \
+    recovery/root/system/bin/crash_dump64 \
     recovery/root/system/bin/vendor.qti.hardware.vibrator.service \
     recovery/root/system/etc/init/vendor.qti.hardware.vibrator.service.rc \
+    recovery/root/system/lib64/libprocinfo.so \
     recovery/root/vendor/etc/vintf/manifest/vendor.qti.hardware.vibrator.service.xml \
     recovery/root/vendor/lib64/libaachaptics.so \
     recovery/root/vendor/lib64/libqtivibratoreffect.xiaomi.so \

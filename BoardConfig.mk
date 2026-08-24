@@ -173,6 +173,41 @@ TARGET_RECOVERY_DEVICE_MODULES += debuggerd strace
 RECOVERY_BINARY_SOURCE_FILES += \
     $(TARGET_OUT_EXECUTABLES)/debuggerd \
     $(TARGET_OUT_EXECUTABLES)/strace
+
+# debuggerd and crash_dump are built from source. Neither AOSP module declares
+# recovery_available, but TARGET_RECOVERY_DEVICE_MODULES builds the platform
+# variant and RECOVERY_BINARY_SOURCE_FILES copies it into the ramdisk, which is
+# the route debuggerd and strace above already take.
+#
+# crash_dump also needs libnative_bridge_guest_state_accessor from
+# frameworks/libs/native_bridge_support, a project TWRP's minimal manifest
+# strips and manifests/marble-twrp16.xml puts back. Without it the module could
+# not be built at all, so this tree used to carry crash_dump and libprocinfo as
+# prebuilt blobs lifted from an Android 13 ramdisk. Both were dead on arrival:
+# crash_dump64 could not resolve unwindstack::Regs::RemoteGet and debuggerd
+# could not resolve procinfo::SetError, because this tree's libunwindstack and
+# libprocinfo have both moved on. Building all three from source removes the
+# skew instead of trading one broken binary for the other.
+#
+# Upstream moved crash_dump into the com.android.runtime APEX, so it installs
+# under $(PRODUCT_OUT)/apex and never appears in $(TARGET_OUT_EXECUTABLES).
+# This recovery has no APEX mounts, but bionic hardcodes the destination:
+# debuggerd_handler.cpp defines CRASH_DUMP_PATH as /system/bin/crash_dump64 and
+# linker64 carries that literal, so copying the APEX output to /system/bin is
+# what the crash path actually looks for.
+#
+# crash_dump32 is not built: it was the only 32-bit ELF in the ramdisk and there
+# is no /system/lib for it to link against, so it could never have run.
+TARGET_RECOVERY_DEVICE_MODULES += \
+    crash_dump \
+    libdebuggerd_client \
+    libprocinfo
+RECOVERY_BINARY_SOURCE_FILES += \
+    $(PRODUCT_OUT)/apex/com.android.runtime/bin/crash_dump64
+RECOVERY_LIBRARY_SOURCE_FILES += \
+    $(TARGET_OUT_SHARED_LIBRARIES)/libdebuggerd_client.so \
+    $(TARGET_OUT_SHARED_LIBRARIES)/libprocinfo.so
+
 TW_DEVICE_VERSION := sm7475-marble-for-lingqiqi
 ifeq ($(TARGET_PRODUCT),twrp_marble_wifi)
 TARGET_RECOVERY_DEVICE_MODULES += \

@@ -48,6 +48,14 @@ PRODUCT_PACKAGES += \
     update_engine_sideload \
     update_verifier
 
+# crash_dump only installs inside the com.android.runtime APEX, and listing it
+# in TARGET_RECOVERY_DEVICE_MODULES is not enough: that becomes a required-module
+# edge which ALLOW_MISSING_DEPENDENCIES drops without a word, so the recovery
+# image was built with no crash_dump at all. Requesting the package directly
+# forces the build, and BoardConfig copies the APEX output into the ramdisk.
+PRODUCT_PACKAGES += \
+    crash_dump
+
 # Filesystem utilities
 PRODUCT_PACKAGES += \
     checkpoint_gc \

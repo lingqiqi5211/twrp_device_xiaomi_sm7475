@@ -2,7 +2,8 @@
 <manifest>
   <!--
       Builds bootable/recovery from the marble source branch instead of the
-      upstream branch plus a patch series.
+      upstream branch plus a patch series, and restores one project that the
+      TWRP minimal manifest strips.
 
       Copy this file into .repo/local_manifests/ and then sync
       bootable/recovery. See patches/README.md for the exact commands.
@@ -16,4 +17,15 @@
 
   <project path="bootable/recovery" name="android_bootable_recovery"
            remote="marble" revision="marble-twrp16" />
+
+  <!--
+      TWRP's remove-minimal.xml drops frameworks/libs/native_bridge_support to
+      keep the checkout small, but system/core's crash_dump links
+      libnative_bridge_guest_state_accessor from it. Without the project that
+      module is undefined, ALLOW_MISSING_DEPENDENCIES turns it into a link-time
+      stub, and crash_dump silently produces nothing for the ramdisk. That is
+      why this device tree used to carry a crash_dump binary as a prebuilt blob.
+  -->
+  <project path="frameworks/libs/native_bridge_support"
+           name="platform/frameworks/libs/native_bridge_support" groups="pdk" />
 </manifest>
