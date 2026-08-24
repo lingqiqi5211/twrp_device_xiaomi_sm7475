@@ -25,6 +25,15 @@
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+on early-init
+    # TWRP mounts the vendor image over the ramdisk's own /vendor all through
+    # startup, so libqtikeymint.so resolves to either copy. The vendor image's
+    # copy needs a keymint V1 library no recovery ships, which kills keymint-qti
+    # at link time, so bind the ramdisk's directory where nothing can shadow it
+    # and let the security services search that first.
+    mkdir /vendor_lib64 0755 root root
+    mount none /vendor/lib64 /vendor_lib64 bind
+
 on early-fs
     write /proc/sys/walt/sched_lib_name "recovery,magiskboot,Updater,updater,update_engine_sideload"
     write /proc/sys/walt/sched_lib_mask_force 255
