@@ -1,0 +1,173 @@
+#!/system/bin/sh
+
+# ZIP64-safe front-end for unzip.
+#
+# /system/bin/unzip is a link to ziptool (libziparchive). It reads the central
+# directory of a >4 GiB archive correctly -- "unzip -l" reports the true entry
+# sizes -- but it cannot extract an entry whose compressed data lies past the
+# 4 GiB mark of the archive:
+#
+#   unzip -p marble-2in1_full-OS4.0.0.14...zip super.zst
+#     -> 0 bytes, exit 1, "unzip: failed to extract super.zst: Zlib error"
+#     -> logcat: ziparchive: Zip: inflate zerr=-5 (aIn=10983 aOut=0)
+#
+# HyperOS "2in1" packages keep super.zst (6 GiB here) at the tail of a ~6 GiB
+# zip, so their update-binary pipes an empty stream into zstd and writes
+# nothing to super. Nothing in that script checks for the failure, so the
+# flash reports success while the ROM stays on the old build. busybox unzip is
+# no help either: it has no ZIP64 support and fails with "short read". 7za
+# reads these archives correctly.
+#
+# Archives above 4 GiB therefore go through 7za; everything else keeps using
+# ziptool with its original behaviour. Entries of a small archive can never
+# sit past the 4 GiB mark, so that split is exhaustive.
+#
+# The two tool paths can be overridden to dry-run the argument translation off
+# the device.
+
+REAL_UNZIP="${ZIP64_REAL_UNZIP:-/system/bin/.ziptool/unzip}"
+SEVENZIP="${ZIP64_SEVENZIP:-/system/bin/7za}"
+ZIP64_LIMIT=4294967295
+LOGF=/tmp/recovery.log
+
+warn() {
+    echo "unzip-zip64: $1" >&2
+    [ -w "${LOGF}" ] && echo "W:unzip-zip64: $1" >> "${LOGF}"
+    return 0
+}
+
+if [ ! -x "${REAL_UNZIP}" ]; then
+    echo "unzip-zip64: ${REAL_UNZIP} is missing" >&2
+    exit 127
+fi
+
+# Pass 1: classify without touching "$@", so delegation stays byte-identical.
+mode=extract
+junk_paths=0
+overwrite=-aoa
+dest=
+archive=
+want_dest=0
+end_of_opts=0
+delegate=0
+
+for arg in "$@"; do
+    if [ "${want_dest}" = 1 ]; then
+        dest="${arg}"
+        want_dest=0
+        continue
+    fi
+    if [ "${end_of_opts}" = 0 ] && [ "${arg}" = "--" ]; then
+        end_of_opts=1
+        continue
+    fi
+    case "${end_of_opts}${arg}" in
+        0-?*)
+            flags="${arg#-}"
+            while [ -n "${flags}" ]; do
+                f="${flags%"${flags#?}"}"
+                flags="${flags#?}"
+                case "${f}" in
+                    p) mode=pipe ;;
+                    l|v|Z|T) mode=list ;;
+                    j) junk_paths=1 ;;
+                    o) overwrite=-aoa ;;
+                    n) overwrite=-aos ;;
+                    q) ;;
+                    d)
+                        # "-d DIR" takes the next argument; "-dDIR" is not a
+                        # form unzip accepts, so the rest must be empty.
+                        if [ -n "${flags}" ]; then
+                            warn "cannot translate -d${flags}"
+                            delegate=1
+                        fi
+                        want_dest=1
+                        ;;
+                    *)
+                        warn "unsupported option -${f}, falling back to ziptool"
+                        delegate=1
+                        ;;
+                esac
+            done
+            ;;
+        *)
+            if [ -z "${archive}" ]; then
+                archive="${arg}"
+            fi
+            ;;
+    esac
+done
+
+# Listing is correct in ziptool even for these archives, and so is anything we
+# could not translate. Hand those straight back.
+if [ "${mode}" = list ] || [ "${delegate}" = 1 ] || [ -z "${archive}" ]; then
+    exec "${REAL_UNZIP}" "$@"
+fi
+
+size="$(stat -c %s "${archive}" 2>/dev/null)"
+case "${size}" in
+    ''|*[!0-9]*)
+        # Size unknown: keep the stock tool rather than guess.
+        exec "${REAL_UNZIP}" "$@"
+        ;;
+esac
+
+if [ "${size}" -le "${ZIP64_LIMIT}" ]; then
+    exec "${REAL_UNZIP}" "$@"
+fi
+
+if [ ! -x "${SEVENZIP}" ]; then
+    warn "${SEVENZIP} is missing, cannot handle ${size}-byte archive"
+    exec "${REAL_UNZIP}" "$@"
+fi
+
+# Pass 2: keep only the entry patterns, dropping options and the archive.
+# Each argument is rotated to the end of "$@" if it survives, so the list left
+# behind is exactly the entry list.
+remaining=$#
+seen_archive=0
+want_dest=0
+end_of_opts=0
+while [ "${remaining}" -gt 0 ]; do
+    arg="$1"
+    shift
+    remaining=$((remaining - 1))
+    if [ "${want_dest}" = 1 ]; then
+        want_dest=0
+        continue
+    fi
+    if [ "${end_of_opts}" = 0 ] && [ "${arg}" = "--" ]; then
+        end_of_opts=1
+        continue
+    fi
+    case "${end_of_opts}${arg}" in
+        0-?*)
+            case "${arg}" in
+                *d*) want_dest=1 ;;
+            esac
+            continue
+            ;;
+    esac
+    if [ "${seen_archive}" = 0 ]; then
+        seen_archive=1
+        continue
+    fi
+    set -- "$@" "${arg}"
+done
+
+if [ "${junk_paths}" = 1 ]; then
+    verb=e
+else
+    verb=x
+fi
+
+if [ "${mode}" = pipe ]; then
+    # 7za sends entry data to stdout and its own messages to stderr under -so.
+    exec "${SEVENZIP}" "${verb}" -so -bd "${archive}" "$@"
+fi
+
+if [ -n "${dest}" ]; then
+    exec "${SEVENZIP}" "${verb}" -y -bd "${overwrite}" -o"${dest}" "${archive}" "$@"
+fi
+
+exec "${SEVENZIP}" "${verb}" -y -bd "${overwrite}" "${archive}" "$@"
