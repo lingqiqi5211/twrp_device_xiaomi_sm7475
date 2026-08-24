@@ -51,16 +51,22 @@ bash "${target_tree}/scripts/apply-patches.sh" "${twrp_source}" "${twrp_product}
 cd "${twrp_source}"
 
 # Removed prebuilts and relinked libraries can survive in an incremental out
-# directory even after their source files change. Purge the prebuilts this tree
-# has dropped and the recovery packaging stamps so the ramdisk is rebuilt from
-# the current device tree and patched TWRP libraries.
+# directory even after their source files change, and so do files left behind by
+# a rename. Purge what this tree has dropped or renamed, plus the recovery
+# packaging stamps, so the ramdisk is rebuilt from the current device tree and
+# TWRP source.
 product_out="${OUT_DIR:-out}/target/product/marble"
 for stale_file in \
     recovery/root/system/bin/crash_dump32 \
-    recovery/root/system/bin/crash_dump64 \
+    recovery/root/system/bin/marble_recovery_wpa_cli \
+    recovery/root/system/bin/marble_recovery_wpa_supplicant \
     recovery/root/system/bin/vendor.qti.hardware.vibrator.service \
+    recovery/root/system/bin/wpa_cli_recovery \
+    recovery/root/system/bin/wpa_supplicant_recovery \
     recovery/root/system/etc/init/vendor.qti.hardware.vibrator.service.rc \
-    recovery/root/system/lib64/libprocinfo.so \
+    recovery/root/system/lib64/libminuitwrp.so \
+    recovery/root/system/lib64/libusbhost.so \
+    recovery/root/system/lib64/libusbhost_twrp.so \
     recovery/root/vendor/etc/vintf/manifest/vendor.qti.hardware.vibrator.service.xml \
     recovery/root/vendor/lib64/libaachaptics.so \
     recovery/root/vendor/lib64/libqtivibratoreffect.xiaomi.so \
@@ -70,9 +76,14 @@ for stale_file in \
     recovery/root/vendor/lib64/vendor.qti.hardware.vibratorSel.impl.so; do
     rm -f -- "${product_out}/${stale_file}"
 done
+# Relinking is three separate phony packages, one per destination, and each only
+# re-copies its own list when its own timestamp is gone.
+for relink_module in relink_libraries relink_binaries relink_vendor_hw_binaries; do
+    rm -f -- \
+        "${product_out}/obj/FAKE/${relink_module}_intermediates/${relink_module}-timestamp" \
+        "${product_out}/recovery/root/${relink_module}-timestamp"
+done
 rm -f -- \
-    "${product_out}/obj/FAKE/relink_libraries_intermediates/relink_libraries-timestamp" \
-    "${product_out}/recovery/root/relink_libraries-timestamp" \
     "${product_out}/obj/PACKAGING/recovery_intermediates/ramdisk_files-timestamp" \
     "${product_out}/ramdisk-recovery.img" \
     "${product_out}/recovery.img"
