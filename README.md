@@ -105,7 +105,7 @@ backup.
 - Uses marble's current QTI AIDL V2 vibrator service instead of the obsolete
   `ndk_platform` vibrator ABI removed from the TWRP 16 build tree.
 - The stable `twrp_marble` product deliberately disables TWRP 16's WLAN
-  UI/runtime with `TW_NO_NETWORK`.
+  UI/runtime by leaving `TW_INCLUDE_WIFI` unset.
 - The experimental `twrp_marble_wifi` product uses marble's stock HIDL Wi-Fi
   HAL and kernel modules with recovery-only, control-socket `wpa_supplicant`
   binaries built from Android 16 source. WPA2 and WPA2/WPA3 transition mode

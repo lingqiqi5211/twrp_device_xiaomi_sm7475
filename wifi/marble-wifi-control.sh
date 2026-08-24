@@ -90,9 +90,14 @@ start_wifi() {
     /system/bin/mkdir -p /tmp/recovery/sockets
     /system/bin/chown wifi:wifi /tmp/recovery/sockets
     /system/bin/chmod 0770 /tmp/recovery/sockets
-    if [ "$(/system/bin/getprop init.svc.marble_recovery_wpa_supplicant)" != "running" ]; then
+
+    # TWRP's wpa_cli drops to the wifi user and puts its client socket straight
+    # in /tmp, which the ramdisk leaves root:shell 0775. Sticky bit kept so one
+    # user cannot remove another's socket.
+    /system/bin/chmod 1777 /tmp
+    if [ "$(/system/bin/getprop init.svc.wpa_supplicant_recovery)" != "running" ]; then
         /system/bin/rm -f "${ctrl_socket}"
-        /system/bin/start marble_recovery_wpa_supplicant
+        /system/bin/start wpa_supplicant_recovery
         attempt=0
         while [ ! -S "${ctrl_socket}" ]; do
             attempt=$((attempt + 1))
@@ -108,7 +113,7 @@ start_wifi() {
 }
 
 stop_wifi() {
-    /system/bin/stop marble_recovery_wpa_supplicant || true
+    /system/bin/stop wpa_supplicant_recovery || true
     if [ -e "/sys/class/net/${iface}" ]; then
         /system/bin/ifconfig "${iface}" down || true
     fi

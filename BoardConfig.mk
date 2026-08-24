@@ -141,9 +141,7 @@ TW_MAX_BRIGHTNESS := 4095
 TW_CUSTOM_CPU_TEMP_PATH := "/sys/devices/virtual/thermal/thermal_zone34/temp"
 TW_NO_SCREEN_BLANK := true
 
-# Device services / modules. TWRP 16's WLAN implementation targets newer
-# devices and assumes a device-supplied wpa_supplicant stack. marble is a
-# HIDL-heavy legacy vendor, so the WLAN UI/runtime is deliberately excluded.
+# Device services / modules
 TW_EXCLUDE_DEFAULT_USB_INIT := true
 TW_LOAD_VENDOR_MODULES := "adsp_loader_dlkm.ko goodix_core.ko"
 TW_LOAD_VENDOR_MODULES_EXCLUDE_GKI := true
@@ -210,6 +208,10 @@ RECOVERY_LIBRARY_SOURCE_FILES += \
 
 TW_DEVICE_VERSION := sm7475-marble-for-lingqiqi
 ifeq ($(TARGET_PRODUCT),twrp_marble_wifi)
+# Gates the WLAN GUI and network helpers. The two supplicant binaries it needs
+# come from TWRP's own external/wpa_supplicant_8 fork, which its manifest
+# already selects, and install themselves into the ramdisk.
+TW_INCLUDE_WIFI := true
 TARGET_RECOVERY_DEVICE_MODULES += \
     android.hardware.wifi@1.0 \
     android.hardware.security.keymint-V1-ndk \
@@ -218,13 +220,9 @@ TARGET_RECOVERY_DEVICE_MODULES += \
     libkeystore-engine-wifi-hidl \
     libnl \
     libssl \
-    marble_recovery_wpa_cli \
-    marble_recovery_wpa_supplicant \
     marble_wifi_halctl
 RECOVERY_BINARY_SOURCE_FILES += \
     $(TARGET_OUT_EXECUTABLES)/dhcpdbg \
-    $(TARGET_OUT_EXECUTABLES)/marble_recovery_wpa_cli \
-    $(TARGET_OUT_EXECUTABLES)/marble_recovery_wpa_supplicant \
     $(TARGET_OUT_EXECUTABLES)/marble_wifi_halctl
 RECOVERY_LIBRARY_SOURCE_FILES += \
     $(TARGET_OUT_SHARED_LIBRARIES)/android.hardware.wifi@1.0.so \
@@ -233,6 +231,4 @@ RECOVERY_LIBRARY_SOURCE_FILES += \
     $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)/libkeystore-engine-wifi-hidl.so \
     $(TARGET_OUT_SHARED_LIBRARIES)/libnl.so \
     $(TARGET_OUT_SHARED_LIBRARIES)/libssl.so
-else
-TW_NO_NETWORK := true
 endif

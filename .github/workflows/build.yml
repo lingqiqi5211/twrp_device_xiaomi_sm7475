@@ -278,13 +278,13 @@ jobs:
 
           case "${TWRP_PRODUCT}" in
             twrp_marble)
-              grep -qx 'TW_NO_NETWORK := true' \
+              grep -qx 'TW_INCLUDE_WIFI := true' \
                 "${TWRP_SOURCE}/device/xiaomi/marble/BoardConfig.mk"
               for file in \
                 "${root}/system/bin/marble-wifi-control" \
                 "${root}/system/bin/marble-wifi-dhcp" \
-                "${root}/system/bin/marble_recovery_wpa_cli" \
-                "${root}/system/bin/marble_recovery_wpa_supplicant" \
+                "${root}/system/bin/wpa_cli" \
+                "${root}/system/bin/wpa_supplicant" \
                 "${root}/system/bin/marble_wifi_halctl" \
                 "${root}/system/etc/init/marble-recovery-wifi.rc" \
                 "${root}/vendor/bin/hw/android.hardware.wifi@1.0-service" \
@@ -305,8 +305,8 @@ jobs:
                 "${root}/system/bin/dhcpdbg" \
                 "${root}/system/bin/marble-wifi-control" \
                 "${root}/system/bin/marble-wifi-dhcp" \
-                "${root}/system/bin/marble_recovery_wpa_cli" \
-                "${root}/system/bin/marble_recovery_wpa_supplicant" \
+                "${root}/system/bin/wpa_cli" \
+                "${root}/system/bin/wpa_supplicant" \
                 "${root}/system/bin/marble_wifi_halctl" \
                 "${root}/vendor/bin/hw/android.hardware.wifi@1.0-service"; do
                 test -x "${file}"

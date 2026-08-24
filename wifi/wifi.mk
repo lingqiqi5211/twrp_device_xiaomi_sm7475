@@ -3,8 +3,6 @@
 
 PRODUCT_PACKAGES += \
     dhcpdbg \
-    marble_recovery_wpa_cli \
-    marble_recovery_wpa_supplicant \
     marble_wifi_halctl
 
 PRODUCT_COPY_FILES += \
