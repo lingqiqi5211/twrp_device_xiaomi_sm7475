@@ -1,0 +1,13 @@
+<!--
+    Matches the stock marble vendor manifest. Without this declaration
+    hwservicemanager answers every lookup with "Cannot find entry
+    android.hardware.boot@1.0::IBootControl/default in either framework or
+    device VINTF manifest", so not even HIDL passthrough is reachable.
+-->
+<manifest version="1.0" type="device">
+    <hal format="hidl">
+        <name>android.hardware.boot</name>
+        <transport>hwbinder</transport>
+        <fqname>@1.2::IBootControl/default</fqname>
+    </hal>
+</manifest>
