@@ -16,12 +16,45 @@ is_mounted() {
     /system/bin/grep -q " $1 " /proc/mounts
 }
 
+# insmod refuses a module whose vermagic differs from the running kernel, so the
+# file has to be chosen by vermagic rather than by path. The device's own vendor
+# partitions always hold a matching build; a copy shipped with the image only
+# matches the one kernel it was taken from, and stops matching the moment the
+# owner flashes a different one. Try every candidate and take the first match.
+mount_vendor_dlkm() {
+    is_mounted /vendor_dlkm && return 0
+    slot_suffix="$(/system/bin/getprop ro.boot.slot_suffix)"
+    for device in "/dev/block/mapper/vendor_dlkm${slot_suffix}" \
+                  /dev/block/mapper/vendor_dlkm; do
+        [ -e "${device}" ] || continue
+        /system/bin/mkdir -p /vendor_dlkm
+        /system/bin/mount -o ro "${device}" /vendor_dlkm 2>/dev/null && return 0
+    done
+    return 1
+}
+
 load_module() {
     module_name="$1"
-    module_path="$2"
-    if ! /system/bin/grep -q "^${module_name} " /proc/modules; then
-        /system/bin/insmod "${module_path}"
+    file_name="$2"
+    if /system/bin/grep -q "^${module_name} " /proc/modules; then
+        return 0
     fi
+
+    mount_vendor_dlkm || true
+    kernel_version="$(/system/bin/uname -r)"
+    for directory in /vendor_dlkm/lib/modules /vendor/lib/modules \
+                     /vendor_dlkm/lib/modules/* /vendor/lib/modules/*; do
+        candidate="${directory}/${file_name}"
+        [ -f "${candidate}" ] || continue
+        /system/bin/grep -aq "vermagic=${kernel_version} " "${candidate}" || continue
+        if /system/bin/insmod "${candidate}"; then
+            log_message "loaded ${file_name} from ${directory}"
+            return 0
+        fi
+    done
+
+    log_message "no ${file_name} built for kernel ${kernel_version}"
+    return 1
 }
 
 signal_cnss_fs_ready() {
@@ -60,8 +93,14 @@ start_wifi() {
     fi
 
     signal_cnss_fs_ready
-    load_module cfg80211 /vendor/lib/modules/cfg80211.ko
-    load_module qca6490 /vendor/lib/modules/qca_cld3_qca6490.ko
+
+    # A kernel can carry the whole WLAN stack built in rather than as modules,
+    # and then no module name shows up in /proc/modules even though the driver
+    # is there. The interface is the thing that matters, so ask for it.
+    if [ ! -e "/sys/class/net/${iface}" ]; then
+        load_module cfg80211 cfg80211.ko || return 1
+        load_module qca6490 qca_cld3_qca6490.ko || return 1
+    fi
 
     /system/bin/setprop wifi.interface "${iface}"
     if [ "$(/system/bin/getprop init.svc.vendor.wifi_hal_legacy)" != "running" ]; then
