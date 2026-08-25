@@ -86,14 +86,14 @@ PLATFORM_SECURITY_PATCH := 2099-12-31
 VENDOR_SECURITY_PATCH := $(PLATFORM_SECURITY_PATCH)
 BOOT_SECURITY_PATCH := $(PLATFORM_SECURITY_PATCH)
 
-# Recovery layout
-TARGET_OTA_ASSERT_DEVICE := marble
+# Recovery layout. No TARGET_OTA_ASSERT_DEVICE: one image serves every device in
+# the family, and the assert would refuse to install on all but one of them.
 TARGET_RECOVERY_FSTAB := $(DEVICE_PATH)/recovery.fstab
 TARGET_RECOVERY_PIXEL_FORMAT := RGBX_8888
 TARGET_RECOVERY_QCOM_RTC_FIX := true
 RECOVERY_SDCARD_ON_DATA := true
 
-# Libraries required by marble's legacy HIDL/QSEE vendor stack. The removed
+# Libraries required by the legacy HIDL/QSEE vendor stack. The removed
 # QCOM display-interface repositories are intentionally not referenced here.
 TARGET_RECOVERY_DEVICE_MODULES += \
     android.hidl.allocator@1.0 \
@@ -130,15 +130,18 @@ TW_CUSTOM_CLOCK_POS := 620
 TW_DEFAULT_LANGUAGE := zh_CN
 TW_EXTRA_LANGUAGES := true
 TW_FRAMERATE := 120
-TW_BRIGHTNESS_PATH := "/sys/devices/platform/soc/ae00000.qcom,mdss_mdp/backlight/panel0-backlight/brightness"
+TW_BRIGHTNESS_PATH := "/sys/class/backlight/panel0-backlight/brightness"
 TW_DEFAULT_BRIGHTNESS := 420
 TW_MAX_BRIGHTNESS := 4095
-TW_CUSTOM_CPU_TEMP_PATH := "/sys/devices/virtual/thermal/thermal_zone34/temp"
+TW_CUSTOM_CPU_TEMP_PATH := "/sys/class/thermal/thermal_zone25/temp"
 TW_NO_SCREEN_BLANK := true
 
 # Device services / modules
 TW_EXCLUDE_DEFAULT_USB_INIT := true
-TW_LOAD_VENDOR_MODULES := "adsp_loader_dlkm.ko goodix_core.ko"
+# A union across the family: the loader logs "unavailable modules are optional
+# for this device" and carries on, so listing another device's touch driver
+# costs nothing here.
+TW_LOAD_VENDOR_MODULES := "adsp_loader_dlkm.ko goodix_core.ko fts_touch_spi.ko xiaomi_touch.ko"
 TW_LOAD_VENDOR_MODULES_EXCLUDE_GKI := true
 TW_VENDOR_MODULES_PREPARE_SCRIPT := "/system/bin/beforemodules.sh"
 TW_USE_SERIALNO_PROPERTY_FOR_DEVICE_ID := true

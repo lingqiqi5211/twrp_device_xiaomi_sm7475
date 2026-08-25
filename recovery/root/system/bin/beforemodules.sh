@@ -1,21 +1,37 @@
 #!/system/bin/sh
 
-# Drop a stale Goodix module from vendor_boot before TWRP selects modules from
-# the mounted vendor partitions. Some kernels ship a recovery-time module that
-# registers the driver but cannot bind the device, while vendor_dlkm contains
-# the module matching the running kernel.
+# Drop a touch driver that registered but never bound to anything, so TWRP can
+# load the vendor_dlkm copy that matches the running kernel. Ask the module
+# whether it holds a device rather than probing one fixed path: the panel is a
+# platform device on some members of this family and an SPI device on others,
+# and a module can register a driver on both buses.
 
 LOGF=/tmp/recovery.log
+TOUCH_MODULES="goodix_core fts_touch_spi focaltech_fts synaptics_dsx"
 
-if grep -q '^goodix_core ' /proc/modules && \
-        [ ! -e /sys/bus/spi/devices/spi0.0/driver ] && \
-        [ ! -d /sys/devices/platform/goodix_ts.0 ]; then
-    if rmmod goodix_core; then
-        echo "I:modules_fix: unloaded unbound vendor_boot goodix_core" >> "${LOGF}"
+module_has_device() {
+    for driver in /sys/module/"$1"/drivers/*; do
+        [ -d "${driver}" ] || continue
+        for entry in "${driver}"/*; do
+            [ -e "${entry}" ] || continue
+            case "${entry##*/}" in
+                bind|unbind|uevent|module|new_id|remove_id) continue ;;
+            esac
+            return 0
+        done
+    done
+    return 1
+}
+
+for module in ${TOUCH_MODULES}; do
+    grep -q "^${module} " /proc/modules || continue
+    module_has_device "${module}" && continue
+    if rmmod "${module}"; then
+        echo "I:modules_fix: unloaded unbound ${module}" >> "${LOGF}"
     else
-        echo "E:modules_fix: failed to unload unbound vendor_boot goodix_core" >> "${LOGF}"
+        echo "E:modules_fix: failed to unload unbound ${module}" >> "${LOGF}"
         exit 1
     fi
-fi
+done
 
 exit 0
