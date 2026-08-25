@@ -107,6 +107,11 @@ fi
 set +u
 source build/envsetup.sh
 lunch "${twrp_product}-bp2a-eng"
+# crash_dump only exists inside the com.android.runtime APEX and nothing in the
+# recoveryimage graph depends on that staging step, so RECOVERY_BINARY_SOURCE_FILES
+# would find nothing to copy on a clean out directory -- and say nothing about it.
+# Build the file first, as its own goal.
+m "${BUILD_JOBS:--j$(nproc)}" "${product_out}/apex/com.android.runtime/bin/crash_dump64"
 m "${BUILD_JOBS:--j$(nproc)}" recoveryimage
 set -u
 

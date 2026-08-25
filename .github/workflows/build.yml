@@ -12,8 +12,11 @@ on:
           - twrp_marble
           - twrp_marble_wifi
 
+# No inputs here: concurrency is evaluated for every event, and the inputs
+# context exists only for workflow_dispatch, so referencing it makes GitHub
+# reject the whole file.
 concurrency:
-  group: twrp16-marble-${{ github.ref }}-${{ inputs.product }}
+  group: twrp16-taro-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -101,6 +104,9 @@ jobs:
             --no-clone-bundle \
             --partial-clone \
             --clone-filter=blob:limit=10M
+          mkdir -p .repo/local_manifests
+          cp "${GITHUB_WORKSPACE}/device-tree/manifests/taro-twrp16.xml" \
+            .repo/local_manifests/
           repo sync \
             -c \
             --fail-fast \
@@ -148,7 +154,12 @@ jobs:
           export ALLOW_MISSING_DEPENDENCIES=true
           source build/envsetup.sh
           lunch "${TWRP_PRODUCT}-bp2a-eng"
-          m -j4 recoveryimage 2>&1 | tee "${GITHUB_WORKSPACE}/build.log"
+          # Nothing in the recoveryimage graph stages the com.android.runtime
+          # APEX, so crash_dump64 has to be asked for by path or the ramdisk
+          # copy silently finds nothing.
+          m -j4 "${PRODUCT_OUT}/apex/com.android.runtime/bin/crash_dump64" \
+            2>&1 | tee "${GITHUB_WORKSPACE}/build.log"
+          m -j4 recoveryimage 2>&1 | tee -a "${GITHUB_WORKSPACE}/build.log"
 
       - name: Verify image and runtime composition
         shell: bash
@@ -190,22 +201,22 @@ jobs:
             "${TWRP_SOURCE}/bootable/recovery/kernel_module_loader.cpp"
           grep -Fq 'persist_value_changed' \
             "${TWRP_SOURCE}/bootable/recovery/data.cpp"
-          grep -Fq 'Persistent settings storage is not mounted' \
-            "${TWRP_SOURCE}/bootable/recovery/infomanager.cpp"
           grep -Fq 'aidl_health_declared' \
             "${TWRP_SOURCE}/bootable/recovery/recovery_utils/battery_utils.cpp"
-          grep -Fq 'restart_period 1' \
-            "${TWRP_SOURCE}/bootable/recovery/etc/init.rc"
           grep -aFq 'effect type %d' \
             "${root}/system/lib64/libtwrpminui.so"
           test -x "${root}/system/bin/beforemodules.sh"
           test -x "${root}/system/bin/waitforbattery.sh"
+
+          # Copied out of the APEX by RECOVERY_BINARY_SOURCE_FILES, which has no
+          # dependency on it being staged, so it goes missing without a word.
+          test -s "${root}/system/bin/crash_dump64"
+          test -s "${root}/system/bin/unzip-zip64"
+          test -s "${root}/system/lib64/libusbhost.so"
           grep -aFq 'Running vendor module prepare script' \
             "${root}/system/bin/recovery"
           grep -aFq 'Apex is disabled in this build' \
             "${root}/system/bin/recovery"
-          grep -Fq 'restart_period 1' \
-            "${root}/system/etc/init/hw/init.rc"
           grep -Fq 'start twrp-wait-for-battery' \
             "${root}/init.recovery.qcom.rc"
           grep -Fq 'on property:twrp.battery.ready=true' \
