@@ -132,6 +132,7 @@ jobs:
             recovery/root/system/bin/waitforbattery.sh \
             scripts/apply-patches.sh \
             scripts/build.sh \
+            scripts/taro-collect.sh \
             wifi/marble-wifi-control.sh \
             wifi/marble-wifi-dhcp.sh; do
             test -x "${GITHUB_WORKSPACE}/device-tree/${script}"
