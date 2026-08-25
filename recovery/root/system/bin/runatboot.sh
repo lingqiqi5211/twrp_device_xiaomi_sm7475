@@ -1,19 +1,18 @@
 #!/system/bin/sh
 
-# Startup hook TWRP runs from /system/bin/runatboot.sh. It sets the public
-# product identity for the two marble regional variants and installs the
-# ZIP64-safe unzip front-end.
+# Startup hook TWRP runs from /system/bin/runatboot.sh. It names the running
+# device and installs the ZIP64-safe unzip front-end.
+#
+# One image serves the whole family, so the identity comes from the hardware
+# rather than the build. ro.boot.hardware.sku is the codename the bootloader
+# reports; marble additionally sells under two names by region, which is what
+# ro.boot.hwc distinguishes. Adding a device means one more case below.
 
-load_global() {
-    echo "POCO F5" > /config/usb_gadget/g1/strings/0x409/product
-    resetprop "ro.product.brand" "POCO"
-    echo "I:unified-script: setting POCO F5 props" >> "${LOGF}"
-}
-
-load_CN() {
-    echo "Redmi Note 12 Turbo" > /config/usb_gadget/g1/strings/0x409/product
-    resetprop "ro.product.brand" "Redmi"
-    echo "I:unified-script: setting Redmi Note 12 Turbo props" >> "${LOGF}"
+set_identity() {
+    resetprop "ro.product.brand" "$1"
+    resetprop "ro.product.model" "$2"
+    echo "$2" > /config/usb_gadget/g1/strings/0x409/product
+    echo "I:identity: ${sku:-unknown sku} -> $1 $2" >> "${LOGF}"
 }
 
 # Route >4 GiB archives away from ziptool, which cannot extract past an
@@ -44,16 +43,57 @@ install_zip64_unzip() {
 }
 
 LOGF=/tmp/recovery.log
+sku="$(getprop ro.boot.hardware.sku)"
 region="$(getprop ro.boot.hwc)"
 
-echo "I:unified-script: detected region: ${region}" >> "${LOGF}"
+echo "I:identity: sku='${sku}' region='${region}'" >> "${LOGF}"
 
-case "${region}" in
-    "CN")
-        load_CN
+case "${sku}" in
+    marble)
+        if [ "${region}" = "CN" ]; then
+            set_identity "Redmi" "Redmi Note 12 Turbo"
+        else
+            set_identity "POCO" "POCO F5"
+        fi
+        ;;
+    mayfly)
+        set_identity "Xiaomi" "Xiaomi 12S"
+        ;;
+    mondrian)
+        if [ "${region}" = "CN" ]; then
+            set_identity "Redmi" "Redmi K60"
+        else
+            set_identity "POCO" "POCO F5 Pro"
+        fi
+        ;;
+    diting)
+        if [ "${region}" = "CN" ]; then
+            set_identity "Redmi" "Redmi K50 Ultra"
+        else
+            set_identity "Xiaomi" "Xiaomi 12T Pro"
+        fi
+        ;;
+    unicorn)
+        set_identity "Xiaomi" "Xiaomi 12S Pro"
+        ;;
+    thor)
+        set_identity "Xiaomi" "Xiaomi 12S Ultra"
+        ;;
+    cupid)
+        set_identity "Xiaomi" "Xiaomi 12"
+        ;;
+    zeus)
+        set_identity "Xiaomi" "Xiaomi 12 Pro"
+        ;;
+    ingres)
+        if [ "${region}" = "CN" ]; then
+            set_identity "Redmi" "Redmi K50 Gaming"
+        else
+            set_identity "POCO" "POCO F4 GT"
+        fi
         ;;
     *)
-        load_global
+        echo "E:identity: no entry for sku '${sku}', keeping build values" >> "${LOGF}"
         ;;
 esac
 
