@@ -129,7 +129,9 @@ TW_THEME := portrait_hdpi
 TW_CUSTOM_CLOCK_POS := 620
 TW_DEFAULT_LANGUAGE := zh_CN
 TW_EXTRA_LANGUAGES := true
-TW_FRAMERATE := 120
+# The panel is brought up at 60 Hz by the kernel and TWRP cannot re-initialise
+# it for another mode, so pacing the GUI to anything else only drops frames.
+TW_FRAMERATE := 60
 TW_BRIGHTNESS_PATH := "/sys/class/backlight/panel0-backlight/brightness"
 TW_DEFAULT_BRIGHTNESS := 420
 TW_MAX_BRIGHTNESS := 4095
