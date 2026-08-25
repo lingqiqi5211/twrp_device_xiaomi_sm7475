@@ -5,7 +5,7 @@ soong_namespace {
 }
 
 cc_binary {
-    name: "marble_wifi_halctl",
+    name: "taro_wifi_halctl",
     srcs: ["wifi/halctl.cpp"],
     shared_libs: [
         "android.hardware.wifi@1.0",

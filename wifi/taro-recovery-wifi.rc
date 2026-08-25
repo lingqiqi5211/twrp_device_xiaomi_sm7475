@@ -13,7 +13,7 @@ service vendor.wifi_hal_legacy /vendor/bin/hw/android.hardware.wifi@1.0-service
     disabled
     oneshot
 
-service wpa_supplicant_recovery /system/bin/wpa_supplicant -Dnl80211 -iwlan0 -c/vendor/etc/wifi/marble_recovery_wpa_supplicant.conf -O/tmp/recovery/sockets
+service wpa_supplicant_recovery /system/bin/wpa_supplicant -Dnl80211 -iwlan0 -c/vendor/etc/wifi/taro_recovery_wpa_supplicant.conf -O/tmp/recovery/sockets
     class main
     user root
     group root wifi inet net_raw net_admin

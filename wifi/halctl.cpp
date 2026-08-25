@@ -63,7 +63,7 @@ bool FindStaMode(const hidl_vec<IWifiChip::ChipMode>& modes, ChipModeId* mode_id
 
 int main(int argc, char** argv) {
     if (argc != 2 || std::string(argv[1]) != "start") {
-        std::cerr << "usage: marble_wifi_halctl start\n";
+        std::cerr << "usage: taro_wifi_halctl start\n";
         return 2;
     }
 

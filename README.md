@@ -1,123 +1,141 @@
-# TWRP 16 for Xiaomi marble
+# TWRP Device Tree for Xiaomi Taro
 
-Device tree for Redmi Note 12 Turbo / POCO F5 (`marble`), targeting the
-TWRP Android 16 branch and Android 16+ userdata.
+An unofficial TWRP 16 device tree for Xiaomi devices in the `taro` platform
+family. It provides a common arm64, ramdisk-only A/B recovery image for several
+Xiaomi, Redmi and POCO products, with device identity and hardware-specific
+modules selected at runtime.
 
-## Source baseline
+## Target Devices
+
+The shared product definitions cover the following device codenames:
+
+| Codename   | Device                           | SoC    |
+| ---------- | -------------------------------- | ------ |
+| `marble`   | Redmi Note 12 Turbo / POCO F5    | SM7475 |
+| `mayfly`   | Xiaomi 12S                       | SM8475 |
+| `mondrian` | Redmi K60 / POCO F5 Pro          | SM8475 |
+| `diting`   | Redmi K50 Ultra / Xiaomi 12T Pro | SM8475 |
+| `unicorn`  | Xiaomi 12S Pro                   | SM8475 |
+| `thor`     | Xiaomi 12S Ultra                 | SM8475 |
+| `cupid`    | Xiaomi 12                        | SM8450 |
+| `zeus`     | Xiaomi 12 Pro                    | SM8450 |
+| `ingres`   | Redmi K50 Gaming / POCO F4 GT    | SM8450 |
+
+The `marble` hardware profile is the primary integrated target. Other codenames
+share the common recovery framework but may require their own touch firmware,
+vendor modules and device-specific files.
+
+## Features
+
+- TWRP 16 recovery userspace based on Android 16/API 36 sources
+- arm64 A/B recovery with dynamic-partition and fastbootd support
+- File-based encryption and metadata encryption using fscrypt policy v2
+- QTI Keymaster, KeyMint, Gatekeeper, boot-control and health services
+- ADB, MTP, sideload, USB OTG and recovery partition tools
+- EROFS logical partitions and Android Verified Boot support
+- Runtime device identification for regional Xiaomi, Redmi and POCO models
+- Touch-module selection for different vendor kernel configurations
+- ZIP64-aware extraction for large update packages
+- Optional Wi-Fi-enabled product using the runtime in [`wifi/`](wifi/)
+
+## Products
+
+| Product            | Description                                          |
+| ------------------ | ---------------------------------------------------- |
+| `twrp_taro`        | Base recovery product without the Wi-Fi runtime      |
+| `twrp_taro_wifi`   | Optional recovery product with WLAN support enabled |
+
+The two products share the same recovery framework. Wi-Fi is kept out of the
+base product because its HAL, firmware and kernel modules are vendor-specific.
+
+## Clone and Build
+
+Build on a Linux x86_64 host with `repo`, Git, Java and the standard Android
+build dependencies. TWRP 16 requires at least 16 GiB of RAM and about 120 GiB
+of free disk space.
+
+### Clone the Sources
+
+Initialize a TWRP 16 source tree and sync the base projects:
 
 ```bash
-repo init -u https://github.com/TWRP-Test/platform_manifest_twrp_aosp.git \
-    -b twrp-16.0 --depth=1
-repo sync -c --no-tags --no-clone-bundle -j"$(nproc)"
-git clone <this-repository> device/xiaomi/marble
+mkdir -p ~/android/twrp-taro
+cd ~/android/twrp-taro
+
+repo init \
+    -u https://github.com/TWRP-Test/platform_manifest_twrp_aosp.git \
+    -b twrp-16.0 \
+    --depth=1 \
+    --no-clone-bundle \
+    --partial-clone \
+    --clone-filter=blob:limit=10M
+repo sync \
+    -c \
+    --fail-fast \
+    --force-sync \
+    --no-clone-bundle \
+    --no-tags \
+    --optimized-fetch \
+    --prune \
+    -j2
 ```
 
-`bootable/recovery` is built from the marble source branch rather than the
-upstream branch plus a patch series, so select it with the bundled local
-manifest and sync it again. The same file restores
-`frameworks/libs/native_bridge_support`, which TWRP strips but `crash_dump`
-needs, so sync both:
+Clone this device tree into the standard Android source layout, then install
+its local manifest. The manifest selects the recovery source required by this
+tree and restores `frameworks/libs/native_bridge_support`:
 
 ```bash
+git clone \
+    https://github.com/lingqiqi5211/twrp_device_xiaomi_taro.git \
+    device/xiaomi/taro
+
 mkdir -p .repo/local_manifests
-cp device/xiaomi/marble/manifests/marble-twrp16.xml .repo/local_manifests/
-repo sync -c --no-tags --no-clone-bundle \
+cp device/xiaomi/taro/manifests/taro-twrp16.xml .repo/local_manifests/
+repo sync \
+    -c \
+    --fail-fast \
+    --force-sync \
+    --no-clone-bundle \
+    --no-tags \
+    --optimized-fetch \
+    --prune \
     bootable/recovery frameworks/libs/native_bridge_support
 ```
 
-The branch is `marble-twrp16` of
-`https://github.com/lingqiqi5211/android_bootable_recovery`, which tracks
-`TWRP-Test/android_bootable_recovery` `twrp-16.0`. `scripts/apply-patches.sh`
-refuses to build when that checkout is missing the marble recovery changes, so
-a forgotten local manifest fails loudly instead of producing an image without
-them.
+### Build the Recovery
 
-## Build
-
-The stable product keeps networking out of the recovery ramdisk:
+Run the build script from the Android source root. It installs the device tree
+when needed, checks the recovery source, selects the product and builds the
+recovery image:
 
 ```bash
-bash device/xiaomi/marble/scripts/apply-patches.sh "$PWD" twrp_marble
-source build/envsetup.sh
-lunch twrp_marble-bp2a-eng
-m recoveryimage
+cd ~/android/twrp-taro
+TWRP_PRODUCT=twrp_taro \
+    bash device/xiaomi/taro/scripts/build.sh
 ```
 
-The experimental Wi-Fi product has a separate output directory:
+To build the optional Wi-Fi product instead:
 
 ```bash
-TWRP_SOURCE="$PWD" \
-TWRP_PRODUCT=twrp_marble_wifi \
-bash device/xiaomi/marble/scripts/build.sh
+TWRP_PRODUCT=twrp_taro_wifi \
+    bash device/xiaomi/taro/scripts/build.sh
 ```
 
-For the stable product, `scripts/build.sh` defaults to `twrp_marble`.
+The generated images are placed at:
 
-Nothing here patches the Android source any more. The recovery changes live as
-commits on the `marble-twrp16` branch; `libtwrpmtp-ffs` links AOSP's own
-`libusbhost`, whose recovery variant TWRP declared upstream in `system/core`
-`ea939a2`; and the two recovery Wi-Fi binaries come from TWRP's own
-`external/wpa_supplicant_8` fork, which its manifest already selects in place of
-the AOSP project. `scripts/apply-patches.sh` now only checks that
-`bootable/recovery` really is the marble branch, so a forgotten local manifest
-fails loudly instead of producing an image without those changes.
+- `out/target/product/taro/recovery.img`
+- `out-taro-wifi/target/product/taro/recovery.img`
 
-Keep every project synced, not just `bootable/recovery`: the `vendor/twrp` fork
-and the `wpa_supplicant_8` and `libusbhost` patches this tree used to carry were
-all fixes TWRP had already landed upstream.
+## References
 
-A checkout synced before TWRP's manifest replaced `external/wpa_supplicant_8`
-still holds the AOSP project, and `repo sync` refuses to switch it in place
-("unsupported checkout state"). Delete `external/wpa_supplicant_8`,
-`.repo/projects/external/wpa_supplicant_8.git` and
-`.repo/project-objects/platform/external/wpa_supplicant_8.git`, then sync that
-project again.
+This tree follows the structure and conventions used by the following projects:
 
-All files under `scripts/` and recovery runtime shell scripts must be committed
-with Git mode `100755`; CI rejects a checkout that loses their executable bit.
+- [TWRP](https://twrp.me/)
+- [TWRP AOSP platform manifest](https://github.com/TWRP-Test/platform_manifest_twrp_aosp)
+- [AviderMin/ofrp_device_xiaomi_marble](https://github.com/AviderMin/ofrp_device_xiaomi_marble)
+- [YuKongA/device_xiaomi_marble_TWRP](https://github.com/YuKongA/device_xiaomi_marble_TWRP)
+- [YuKongA/twrp_device_xiaomi_sm8850](https://github.com/YuKongA/twrp_device_xiaomi_sm8850)
+- [Kyuofox/twrp_device_xiaomi_sm8850](https://github.com/Kyuofox/twrp_device_xiaomi_sm8850)
 
-Soong analyses this tree with the Go collector switched off, so soong_build's
-heap only grows: it peaks near 20 GiB and an 18 GiB machine is OOM-killed
-during analysis with swap untouched. `scripts/build.sh` therefore sets
-`SOONG_GOMEMLIMIT` to 70% of MemTotal unless the caller already chose a value,
-which makes the runtime collect as it approaches that ceiling. Measured on this
-tree: 20.2 GiB peak and 200 s of analysis unlimited, against 13.2 GiB and 206 s
-at a 12 GiB ceiling. Building with a bare `m recoveryimage` skips that default,
-so export `SOONG_GOMEMLIMIT` yourself on a machine with less than about 24 GiB.
-
-The manual GitHub Actions workflow targets a self-hosted Linux x64 runner with
-at least 120 GiB of free disk and 16 GiB of RAM. Standard GitHub-hosted runners
-do not have enough disk for this TWRP 16 source tree. The workflow uploads
-`recovery.img`, its SHA-256 file and the complete build log.
-
-The stable output is `out/target/product/marble/recovery.img`; the Wi-Fi output
-is `out-marble-wifi/target/product/marble/recovery.img`. Both are ramdisk-only
-A/B recovery images; do not use `fastboot boot` with them. Flash the active or
-inactive recovery slot only after confirming the device codename and making a
-backup.
-
-## Compatibility notes
-
-- Keeps marble's real Android 13 vendor/shipping level while building against
-  the Android 16/API 36 recovery source.
-- Includes both legacy QTI HIDL keymaster/gatekeeper and the QTI AIDL KeyMint
-  service required by newer Android userdata.
-- Uses marble's current QTI AIDL V2 vibrator service instead of the obsolete
-  `ndk_platform` vibrator ABI removed from the TWRP 16 build tree.
-- The stable `twrp_marble` product deliberately disables TWRP 16's WLAN
-  UI/runtime by leaving `TW_INCLUDE_WIFI` unset.
-- The experimental `twrp_marble_wifi` product uses marble's stock HIDL Wi-Fi
-  HAL and kernel modules with recovery-only, control-socket `wpa_supplicant`
-  binaries built from Android 16 source. WPA2 and WPA2/WPA3 transition mode
-  have been tested; transition mode currently prefers WPA2 compatibility.
-  Pure WPA3-SAE remains unverified. Credentials are never written back to the
-  supplicant configuration, and stopping Wi-Fi retains the HAL/modules for
-  faster reuse while clearing IP, gateway and DNS state.
-- Uses fscrypt policy v2, wrapped-key metadata encryption, EROFS logical
-  partitions and Android Q through W GSI AVB keys.
-- Selects the MIUI 14 or HyperOS kernel-module set at recovery startup.
-
-Hardware files and recovery services are based on
-`AviderMin/ofrp_device_xiaomi_marble` and
-`YuKongA/device_xiaomi_marble_TWRP`. TWRP 16 build conventions are based on
-`Kyuofox/twrp_device_xiaomi_sm8850` / `YuKongA/twrp_device_xiaomi_sm8850`.
+This is an unofficial community project and is not affiliated with Xiaomi or
+Team Win Recovery Project.

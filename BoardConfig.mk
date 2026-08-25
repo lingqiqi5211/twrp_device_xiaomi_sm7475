@@ -1,7 +1,7 @@
 # Copyright (C) 2026 The Android Open Source Project
 # SPDX-License-Identifier: Apache-2.0
 
-DEVICE_PATH := device/xiaomi/marble
+DEVICE_PATH := device/xiaomi/taro
 
 # TWRP 16 minimal-manifest compatibility
 ALLOW_MISSING_DEPENDENCIES := true
@@ -69,7 +69,7 @@ BOARD_AVB_RECOVERY_ALGORITHM := SHA256_RSA4096
 BOARD_AVB_RECOVERY_ROLLBACK_INDEX := 1
 BOARD_AVB_RECOVERY_ROLLBACK_INDEX_LOCATION := 1
 
-# File-based encryption. marble uses fscrypt v2 with wrapped keys; both the
+# File-based encryption. This family uses fscrypt v2 with wrapped keys; both the
 # legacy HIDL and Android 16+ AIDL QTI security services are shipped below.
 BOARD_USES_METADATA_PARTITION := true
 TW_INCLUDE_CRYPTO := true
@@ -171,7 +171,7 @@ RECOVERY_BINARY_SOURCE_FILES += \
 
 # None of these declare recovery_available, so build the platform variant and
 # copy it in, as debuggerd and strace above do. crash_dump needs
-# frameworks/libs/native_bridge_support, which marble-twrp16.xml restores, and
+# frameworks/libs/native_bridge_support, which taro-twrp16.xml restores, and
 # it now ships inside the com.android.runtime APEX -- nothing mounts APEX here,
 # but bionic hardcodes CRASH_DUMP_PATH as /system/bin/crash_dump64, so the APEX
 # output is copied there. No crash_dump32: there is no /system/lib to link to.
@@ -185,8 +185,8 @@ RECOVERY_LIBRARY_SOURCE_FILES += \
     $(TARGET_OUT_SHARED_LIBRARIES)/libdebuggerd_client.so \
     $(TARGET_OUT_SHARED_LIBRARIES)/libprocinfo.so
 
-TW_DEVICE_VERSION := sm7475-marble-for-lingqiqi
-ifeq ($(TARGET_PRODUCT),twrp_marble_wifi)
+TW_DEVICE_VERSION := taro-for-lingqiqi
+ifeq ($(TARGET_PRODUCT),twrp_taro_wifi)
 # Gates the WLAN GUI and network helpers. The two supplicant binaries it needs
 # come from TWRP's own external/wpa_supplicant_8 fork, which its manifest
 # already selects, and install themselves into the ramdisk.
@@ -199,10 +199,10 @@ TARGET_RECOVERY_DEVICE_MODULES += \
     libkeystore-engine-wifi-hidl \
     libnl \
     libssl \
-    marble_wifi_halctl
+    taro_wifi_halctl
 RECOVERY_BINARY_SOURCE_FILES += \
     $(TARGET_OUT_EXECUTABLES)/dhcpdbg \
-    $(TARGET_OUT_EXECUTABLES)/marble_wifi_halctl
+    $(TARGET_OUT_EXECUTABLES)/taro_wifi_halctl
 RECOVERY_LIBRARY_SOURCE_FILES += \
     $(TARGET_OUT_SHARED_LIBRARIES)/android.hardware.wifi@1.0.so \
     $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)/android.hardware.security.keymint-V1-ndk.so \

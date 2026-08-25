@@ -3,13 +3,13 @@
 
 PRODUCT_PACKAGES += \
     dhcpdbg \
-    marble_wifi_halctl
+    taro_wifi_halctl
 
 PRODUCT_COPY_FILES += \
-    $(DEVICE_PATH)/wifi/marble-wifi-control.sh:recovery/root/system/bin/marble-wifi-control \
-    $(DEVICE_PATH)/wifi/marble-wifi-dhcp.sh:recovery/root/system/bin/marble-wifi-dhcp \
-    $(DEVICE_PATH)/wifi/marble-recovery-wifi.rc:recovery/root/system/etc/init/marble-recovery-wifi.rc \
-    $(DEVICE_PATH)/wifi/marble_recovery_wpa_supplicant.conf:recovery/root/vendor/etc/wifi/marble_recovery_wpa_supplicant.conf \
+    $(DEVICE_PATH)/wifi/taro-wifi-control.sh:recovery/root/system/bin/taro-wifi-control \
+    $(DEVICE_PATH)/wifi/taro-wifi-dhcp.sh:recovery/root/system/bin/taro-wifi-dhcp \
+    $(DEVICE_PATH)/wifi/taro-recovery-wifi.rc:recovery/root/system/etc/init/taro-recovery-wifi.rc \
+    $(DEVICE_PATH)/wifi/taro_recovery_wpa_supplicant.conf:recovery/root/vendor/etc/wifi/taro_recovery_wpa_supplicant.conf \
     $(DEVICE_PATH)/wifi/prebuilt/vendor/etc/wifi/qca6490/WCNSS_qcom_cfg.ini:recovery/root/vendor/firmware/wlan/qca_cld/qca6490/WCNSS_qcom_cfg.ini \
     $(DEVICE_PATH)/wifi/prebuilt/vendor/bin/hw/android.hardware.wifi@1.0-service:recovery/root/vendor/bin/hw/android.hardware.wifi@1.0-service \
     $(DEVICE_PATH)/wifi/prebuilt/vendor/etc/vintf/manifest/android.hardware.wifi@1.0-service.xml:recovery/root/vendor/etc/vintf/manifest/android.hardware.wifi@1.0-service.xml \

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest>
   <!--
-      Builds bootable/recovery from the marble source branch instead of the
+      Builds bootable/recovery from this tree's source branch instead of the
       upstream branch plus a patch series, and restores one project that the
       TWRP minimal manifest strips.
 
@@ -9,14 +9,14 @@
       bootable/recovery. See the README for the exact commands.
 
       The branch tracks TWRP-Test/android_bootable_recovery twrp-16.0 and
-      carries the marble recovery changes as ordinary commits.
+      carries the recovery changes as ordinary commits.
   -->
-  <remote name="marble" fetch="https://github.com/lingqiqi5211" />
+  <remote name="fork" fetch="https://github.com/lingqiqi5211" />
 
   <remove-project name="android_bootable_recovery" />
 
   <project path="bootable/recovery" name="android_bootable_recovery"
-           remote="marble" revision="marble-twrp16" />
+           remote="fork" revision="taro-twrp16" />
 
   <!--
       TWRP's remove-minimal.xml drops this project, but crash_dump links

@@ -2,10 +2,10 @@
 
 set -eu
 
-log_tag="marble_wifi"
+log_tag="taro_wifi"
 iface="wlan0"
 ctrl_socket="/tmp/recovery/sockets/${iface}"
-cnss_ready_marker="/tmp/marble-wifi-cnss-fs-ready"
+cnss_ready_marker="/tmp/taro-wifi-cnss-fs-ready"
 
 log_message() {
     /system/bin/log -t "${log_tag}" "$*"
@@ -78,7 +78,7 @@ start_wifi() {
     fi
 
     if [ ! -e "/sys/class/net/${iface}" ]; then
-        iface_name="$(/system/bin/marble_wifi_halctl start)" || return 1
+        iface_name="$(/system/bin/taro_wifi_halctl start)" || return 1
         if [ "${iface_name}" != "${iface}" ]; then
             log_message "Wi-Fi HAL created unexpected interface: ${iface_name}"
             return 1
@@ -130,7 +130,7 @@ case "${1:-}" in
         stop_wifi
         ;;
     *)
-        echo "usage: marble-wifi-control {start|stop}" >&2
+        echo "usage: taro-wifi-control {start|stop}" >&2
         exit 2
         ;;
 esac

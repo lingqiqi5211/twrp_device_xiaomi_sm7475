@@ -1,4 +1,4 @@
-name: Build TWRP 16 for marble
+name: Build TWRP 16 for taro
 
 on:
   workflow_dispatch:
@@ -6,11 +6,11 @@ on:
       product:
         description: Recovery product to build
         required: true
-        default: twrp_marble
+        default: twrp_taro
         type: choice
         options:
-          - twrp_marble
-          - twrp_marble_wifi
+          - twrp_taro
+          - twrp_taro_wifi
 
 # No inputs here: concurrency is evaluated for every event, and the inputs
 # context exists only for workflow_dispatch, so referencing it makes GitHub
@@ -42,11 +42,11 @@ jobs:
         run: |
           set -euo pipefail
           case "${TWRP_PRODUCT}" in
-            twrp_marble)
+            twrp_taro)
               out_dir=out
               ;;
-            twrp_marble_wifi)
-              out_dir=out-marble-wifi
+            twrp_taro_wifi)
+              out_dir=out-taro-wifi
               ;;
             *)
               echo "Unsupported TWRP product: ${TWRP_PRODUCT}" >&2
@@ -54,7 +54,7 @@ jobs:
               ;;
           esac
           echo "OUT_DIR=${out_dir}" >> "${GITHUB_ENV}"
-          echo "PRODUCT_OUT=${TWRP_SOURCE}/${out_dir}/target/product/marble" >> "${GITHUB_ENV}"
+          echo "PRODUCT_OUT=${TWRP_SOURCE}/${out_dir}/target/product/taro" >> "${GITHUB_ENV}"
 
       - name: Check build host capacity
         shell: bash
@@ -123,14 +123,14 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p "${TWRP_SOURCE}/device/xiaomi/marble"
+          mkdir -p "${TWRP_SOURCE}/device/xiaomi/taro"
           rsync -a --delete \
             --exclude=.git \
             --exclude=.github \
             --exclude=.codex-cache \
             --exclude=.codex-context \
             "${GITHUB_WORKSPACE}/device-tree/" \
-            "${TWRP_SOURCE}/device/xiaomi/marble/"
+            "${TWRP_SOURCE}/device/xiaomi/taro/"
           for script in \
             recovery/root/system/bin/beforemodules.sh \
             recovery/root/system/bin/runatboot.sh \
@@ -139,8 +139,8 @@ jobs:
             scripts/apply-patches.sh \
             scripts/build.sh \
             scripts/taro-collect.sh \
-            wifi/marble-wifi-control.sh \
-            wifi/marble-wifi-dhcp.sh; do
+            wifi/taro-wifi-control.sh \
+            wifi/taro-wifi-dhcp.sh; do
             test -x "${GITHUB_WORKSPACE}/device-tree/${script}"
           done
 
@@ -149,7 +149,7 @@ jobs:
         run: |
           set -eo pipefail
           cd "${TWRP_SOURCE}"
-          bash device/xiaomi/marble/scripts/apply-patches.sh \
+          bash device/xiaomi/taro/scripts/apply-patches.sh \
             "${TWRP_SOURCE}" "${TWRP_PRODUCT}"
           export ALLOW_MISSING_DEPENDENCIES=true
           source build/envsetup.sh
@@ -245,7 +245,7 @@ jobs:
             "${root}/init.recovery.qcom.rc"
           grep -Fq 'value="620"' \
             "${root}/twres/ui.xml"
-          grep -aFq '3.7.1_16-sm7475-marble-for-lingqiqi' \
+          grep -aFq '3.7.1_16-taro-for-lingqiqi' \
             "${root}/system/bin/recovery"
 
           for legacy_vibrator_file in \
@@ -269,14 +269,14 @@ jobs:
             fi
           done < <(find "${root}" -type f -print0)
 
-          test -f "${root}/vendor/etc/init/marble-security.rc"
+          test -f "${root}/vendor/etc/init/taro-security.rc"
           test -f "${root}/system/etc/recovery.fstab"
           test -f "${root}/system/etc/vintf/manifest.xml"
           test -f "${root}/vendor/etc/vintf/manifest.xml"
-          test -f "${root}/vendor/etc/vintf/manifest/marble-security.xml"
+          test -f "${root}/vendor/etc/vintf/manifest/taro-security.xml"
           cmp -s \
-            "${TWRP_SOURCE}/device/xiaomi/marble/recovery.fstab" \
-            "${TWRP_SOURCE}/device/xiaomi/marble/recovery/root/system/etc/recovery.fstab"
+            "${TWRP_SOURCE}/device/xiaomi/taro/recovery.fstab" \
+            "${TWRP_SOURCE}/device/xiaomi/taro/recovery/root/system/etc/recovery.fstab"
           grep -Eq '^/dev/block/(by-name|bootdevice/by-name)/metadata[[:space:]]+/metadata[[:space:]].*[[:space:],]wrappedkey([[:space:],]|$)' \
             "${root}/system/etc/recovery.fstab"
           grep -Fq 'android.hidl.manager' \
@@ -284,21 +284,21 @@ jobs:
           grep -Fq 'type="device"' \
             "${root}/vendor/etc/vintf/manifest.xml"
           grep -Fq 'hwservicemanager.ready=true && property:vendor.sys.listeners.registered=true' \
-            "${root}/vendor/etc/init/marble-security.rc"
+            "${root}/vendor/etc/init/taro-security.rc"
           grep -Fq 'hwservicemanager.ready=true && property:vendor.sys.listeners.registered=true' \
             "${root}/vendor/etc/init/android.hardware.security.keymint-service-qti.rc"
 
           case "${TWRP_PRODUCT}" in
-            twrp_marble)
+            twrp_taro)
               grep -qx 'TW_INCLUDE_WIFI := true' \
-                "${TWRP_SOURCE}/device/xiaomi/marble/BoardConfig.mk"
+                "${TWRP_SOURCE}/device/xiaomi/taro/BoardConfig.mk"
               for file in \
-                "${root}/system/bin/marble-wifi-control" \
-                "${root}/system/bin/marble-wifi-dhcp" \
+                "${root}/system/bin/taro-wifi-control" \
+                "${root}/system/bin/taro-wifi-dhcp" \
                 "${root}/system/bin/wpa_cli" \
                 "${root}/system/bin/wpa_supplicant" \
-                "${root}/system/bin/marble_wifi_halctl" \
-                "${root}/system/etc/init/marble-recovery-wifi.rc" \
+                "${root}/system/bin/taro_wifi_halctl" \
+                "${root}/system/etc/init/taro-recovery-wifi.rc" \
                 "${root}/vendor/bin/hw/android.hardware.wifi@1.0-service" \
                 "${root}/vendor/etc/wifi/vendor_cmd.xml" \
                 "${root}/vendor/lib/modules/cfg80211.ko" \
@@ -312,20 +312,20 @@ jobs:
                 test ! -e "${file}"
               done
               ;;
-            twrp_marble_wifi)
+            twrp_taro_wifi)
               for file in \
                 "${root}/system/bin/dhcpdbg" \
-                "${root}/system/bin/marble-wifi-control" \
-                "${root}/system/bin/marble-wifi-dhcp" \
+                "${root}/system/bin/taro-wifi-control" \
+                "${root}/system/bin/taro-wifi-dhcp" \
                 "${root}/system/bin/wpa_cli" \
                 "${root}/system/bin/wpa_supplicant" \
-                "${root}/system/bin/marble_wifi_halctl" \
+                "${root}/system/bin/taro_wifi_halctl" \
                 "${root}/vendor/bin/hw/android.hardware.wifi@1.0-service"; do
                 test -x "${file}"
               done
               for file in \
-                "${root}/system/etc/init/marble-recovery-wifi.rc" \
-                "${root}/vendor/etc/wifi/marble_recovery_wpa_supplicant.conf" \
+                "${root}/system/etc/init/taro-recovery-wifi.rc" \
+                "${root}/vendor/etc/wifi/taro_recovery_wpa_supplicant.conf" \
                 "${root}/vendor/etc/wifi/qca6490/WCNSS_qcom_cfg.ini" \
                 "${root}/vendor/etc/vintf/manifest/android.hardware.wifi@1.0-service.xml" \
                 "${root}/vendor/lib/modules/cfg80211.ko" \
@@ -333,34 +333,34 @@ jobs:
                 test -r "${file}"
               done
               grep -Fq 'update_config=0' \
-                "${root}/vendor/etc/wifi/marble_recovery_wpa_supplicant.conf"
+                "${root}/vendor/etc/wifi/taro_recovery_wpa_supplicant.conf"
               ! grep -Eq '^(network|ssid|psk|sae_password)=' \
-                "${root}/vendor/etc/wifi/marble_recovery_wpa_supplicant.conf"
+                "${root}/vendor/etc/wifi/taro_recovery_wpa_supplicant.conf"
               grep -Fq 'service vendor.wifi_hal_legacy' \
-                "${root}/system/etc/init/marble-recovery-wifi.rc"
+                "${root}/system/etc/init/taro-recovery-wifi.rc"
               test "$(grep -Fc 'seclabel u:r:recovery:s0' \
-                "${root}/system/etc/init/marble-recovery-wifi.rc")" -eq 2
+                "${root}/system/etc/init/taro-recovery-wifi.rc")" -eq 2
               grep -Fq 'Authentication rejected; check the password and security mode' \
                 "${TWRP_SOURCE}/bootable/recovery/gui/action.cpp"
               grep -Fq 'net.${iface}.${property}' \
-                "${root}/system/bin/marble-wifi-control"
+                "${root}/system/bin/taro-wifi-control"
               grep -Fq 'CONFIG_CTRL_IFACE_DIR=\"/data/vendor/wifi/wpa/sockets\"' \
                 "${TWRP_SOURCE}/external/wpa_supplicant_8/wpa_supplicant/Android.bp"
               (
-                cd "${TWRP_SOURCE}/device/xiaomi/marble/wifi/prebuilt"
+                cd "${TWRP_SOURCE}/device/xiaomi/taro/wifi/prebuilt"
                 sha256sum -c SHA256SUMS
               )
               while read -r expected relative; do
                 printf '%s  %s/%s\n' "${expected}" "${root}" "${relative}"
-              done < "${TWRP_SOURCE}/device/xiaomi/marble/wifi/prebuilt/SHA256SUMS" |
+              done < "${TWRP_SOURCE}/device/xiaomi/taro/wifi/prebuilt/SHA256SUMS" |
                 sha256sum -c -
               cmp -s \
-                "${TWRP_SOURCE}/device/xiaomi/marble/wifi/prebuilt/vendor/etc/wifi/qca6490/WCNSS_qcom_cfg.ini" \
+                "${TWRP_SOURCE}/device/xiaomi/taro/wifi/prebuilt/vendor/etc/wifi/qca6490/WCNSS_qcom_cfg.ini" \
                 "${root}/vendor/firmware/wlan/qca_cld/qca6490/WCNSS_qcom_cfg.ini"
               xmllint --noout \
                 "${root}/vendor/etc/vintf/manifest/android.hardware.wifi@1.0-service.xml"
               "${TWRP_SOURCE}/${OUT_DIR}/host/linux-x86/bin/host_init_verifier" \
-                "${root}/system/etc/init/marble-recovery-wifi.rc"
+                "${root}/system/etc/init/taro-recovery-wifi.rc"
               for module in cfg80211.ko qca_cld3_qca6490.ko; do
                 case "$(modinfo -F vermagic "${root}/vendor/lib/modules/${module}")" in
                   5.10.261-Glow-v5.0*)
@@ -383,11 +383,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: twrp-16-marble-${{ inputs.product }}-${{ github.run_number }}
+          name: twrp-16-taro-${{ inputs.product }}-${{ github.run_number }}
           if-no-files-found: warn
           retention-days: 14
           path: |
             build.log
             recovery.sha256
-            ${{ env.TWRP_SOURCE }}/out/target/product/marble/recovery.img
-            ${{ env.TWRP_SOURCE }}/out-marble-wifi/target/product/marble/recovery.img
+            ${{ env.TWRP_SOURCE }}/out/target/product/taro/recovery.img
+            ${{ env.TWRP_SOURCE }}/out-taro-wifi/target/product/taro/recovery.img

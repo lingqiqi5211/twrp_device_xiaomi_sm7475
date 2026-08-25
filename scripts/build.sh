@@ -6,10 +6,10 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 tree_root="$(cd "${script_dir}/.." && pwd)"
 twrp_source="${TWRP_SOURCE:-$(pwd)}"
-twrp_product="${TWRP_PRODUCT:-twrp_marble}"
+twrp_product="${TWRP_PRODUCT:-twrp_taro}"
 
 case "${twrp_product}" in
-    twrp_marble|twrp_marble_wifi)
+    twrp_taro|twrp_taro_wifi)
         ;;
     *)
         echo "Unsupported TWRP product: ${twrp_product}" >&2
@@ -24,7 +24,7 @@ if [[ ! -f "${twrp_source}/build/envsetup.sh" ]]; then
 fi
 
 twrp_source="$(cd "${twrp_source}" && pwd)"
-target_tree="${twrp_source}/device/xiaomi/marble"
+target_tree="${twrp_source}/device/xiaomi/taro"
 
 if [[ "${tree_root}" != "${target_tree}" ]]; then
     command -v rsync >/dev/null || {
@@ -40,9 +40,9 @@ if [[ "${tree_root}" != "${target_tree}" ]]; then
         "${tree_root}/" "${target_tree}/"
 fi
 
-if [[ "${twrp_product}" == "twrp_marble_wifi" ]]; then
+if [[ "${twrp_product}" == "twrp_taro_wifi" ]]; then
     if [[ -z "${OUT_DIR:-}" ]]; then
-        export OUT_DIR="out-marble-wifi"
+        export OUT_DIR="out-taro-wifi"
     fi
 fi
 
@@ -55,11 +55,9 @@ cd "${twrp_source}"
 # a rename. Purge what this tree has dropped or renamed, plus the recovery
 # packaging stamps, so the ramdisk is rebuilt from the current device tree and
 # TWRP source.
-product_out="${OUT_DIR:-out}/target/product/marble"
+product_out="${OUT_DIR:-out}/target/product/taro"
 for stale_file in \
     recovery/root/system/bin/crash_dump32 \
-    recovery/root/system/bin/marble_recovery_wpa_cli \
-    recovery/root/system/bin/marble_recovery_wpa_supplicant \
     recovery/root/system/bin/vendor.qti.hardware.vibrator.service \
     recovery/root/system/bin/wpa_cli_recovery \
     recovery/root/system/bin/wpa_supplicant_recovery \
@@ -75,6 +73,17 @@ for stale_file in \
     recovery/root/vendor/lib64/vendor.qti.hardware.vibratorOL.impl.so \
     recovery/root/vendor/lib64/vendor.qti.hardware.vibratorSel.impl.so; do
     rm -f -- "${product_out}/${stale_file}"
+done
+# Everything this tree installs is named after the platform now. The old
+# per-device names survive in an incremental out directory and would ship
+# alongside their replacements, so sweep them by prefix rather than listing each.
+for stale_dir in \
+    system/bin \
+    system/etc/init \
+    vendor/etc/init \
+    vendor/etc/vintf/manifest \
+    vendor/etc/wifi; do
+    rm -f -- "${product_out}/recovery/root/${stale_dir}"/marble*
 done
 # Relinking is three separate phony packages, one per destination, and each only
 # re-copies its own list when its own timestamp is gone.
@@ -115,7 +124,7 @@ m "${BUILD_JOBS:--j$(nproc)}" "${product_out}/apex/com.android.runtime/bin/crash
 m "${BUILD_JOBS:--j$(nproc)}" recoveryimage
 set -u
 
-image="${OUT_DIR:-${twrp_source}/out}/target/product/marble/recovery.img"
+image="${OUT_DIR:-${twrp_source}/out}/target/product/taro/recovery.img"
 [[ -s "${image}" ]] || {
     echo "Build completed without a recovery image: ${image}" >&2
     exit 1

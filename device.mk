@@ -7,8 +7,8 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/emulated_storage.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/virtual_ab_ota/compression_with_xor.mk)
 $(call inherit-product, vendor/twrp/config/common.mk)
 
-# marble launched on Android 13. Keep the vendor compatibility level truthful
-# even though the recovery itself is built from the Android 16/API 36 tree.
+# The recovery is built from the Android 16/API 36 tree, but the vendor stack it
+# loads is far older. Keep the shipping level truthful for that stack.
 BOARD_SHIPPING_API_LEVEL := 33
 SHIPPING_API_LEVEL := 33
 PRODUCT_SHIPPING_API_LEVEL := 33
@@ -72,6 +72,6 @@ PRODUCT_EXTRA_RECOVERY_KEYS += \
 PRODUCT_SYSTEM_PROPERTIES += \
     persist.sys.fuse.passthrough.enable=true
 
-ifeq ($(TARGET_PRODUCT),twrp_marble_wifi)
+ifeq ($(TARGET_PRODUCT),twrp_taro_wifi)
 $(call inherit-product, $(DEVICE_PATH)/wifi/wifi.mk)
 endif

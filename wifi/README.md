@@ -1,24 +1,35 @@
-# marble recovery Wi-Fi runtime
+# Recovery Wi-Fi Runtime
 
-This directory contains the optional Wi-Fi runtime used only by
-`twrp_marble_wifi`. The stable `twrp_marble` product does not package or start
-these files.
+This directory contains the optional Wi-Fi runtime for the `twrp_taro_wifi`
+product. It is not included in the base `twrp_taro` product.
 
-The proprietary files under `prebuilt/` were extracted read-only from the
-installed marble stock ROM `OS4.0.0.9.XPCCNXM` on 2026-08-21. The included
-kernel modules report `5.10.261-Glow-v5.0` as their vermagic. Their expected
-hashes are recorded in `prebuilt/SHA256SUMS` and are checked by CI.
+The runtime connects TWRP's WLAN interface to the vendor Wi-Fi stack through
+the QTI HIDL Wi-Fi HAL. It includes the recovery service definition, vendor
+Wi-Fi libraries and firmware configuration, kernel modules, a recovery-only
+`wpa_supplicant`, and the control and DHCP helpers used by TWRP's network UI.
 
-The runtime intentionally keeps the stock HIDL Wi-Fi HAL and kernel modules
-loaded after Wi-Fi is stopped, because reinitializing the vendor stack is slow
-and fragile in recovery. Stop still terminates `wpa_supplicant`, removes its
-control socket, clears the published IP/gateway/DNS properties and empties
-`/etc/resolv.conf`.
+## Runtime Behavior
 
-`marble_recovery_wpa_supplicant.conf` has `update_config=0`, so credentials
-configured through the TWRP UI are held only by the running process and are not
-stored in the recovery image or persistent partitions.
+- Starts the vendor Wi-Fi HAL and `wpa_supplicant` when Wi-Fi is enabled.
+- Uses `wlan0` and a recovery-local control socket under
+  `/tmp/recovery/sockets`.
+- Publishes the active address, gateway and DNS values through recovery network
+  properties.
+- Stops the supplicant and clears network state when Wi-Fi is disabled while
+  retaining the vendor HAL and kernel modules for reuse.
+- Uses `update_config=0`, so credentials configured in recovery are held by the
+  running process and are not written to the recovery image or persistent
+  storage.
 
-WPA2 and WPA2/WPA3 transition mode have been tested. Transition mode prefers
-WPA2 compatibility. Pure WPA3-SAE is present in the UI path but is not yet
-verified on hardware.
+## Hardware Scope
+
+The prebuilt HAL, firmware configuration and kernel modules target the
+`marble` vendor Wi-Fi implementation based on Qualcomm QCA6490. They are
+hardware-specific and are not a generic Wi-Fi stack for every device in the
+`taro` family.
+
+Using Wi-Fi on another device requires matching vendor libraries, firmware,
+kernel modules, init definitions and VINTF declarations.
+
+See the [parent device-tree README](../README.md) for the overall recovery
+project and product layout.
