@@ -8,6 +8,23 @@
 # reports; marble additionally sells under two names by region, which is what
 # ro.boot.hwc distinguishes. Adding a device means one more case below.
 
+# Installers check the device name, not the model. AnyKernel3 tests
+# ro.product.device, ro.build.product, ro.product.vendor.device and
+# ro.vendor.product.device against its own list and aborts with "Unsupported
+# device" otherwise, and TWRP checks the same first property against an OTA
+# package's pre-device. The build leaves all of them saying "taro", which is the
+# product name shared by nine devices, so every device-specific zip refused to
+# install.
+set_device_name() {
+    for prop in ro.product.device ro.build.product ro.product.vendor.device \
+                ro.vendor.product.device ro.product.odm.device \
+                ro.product.system.device ro.product.system_ext.device \
+                ro.product.product.device ro.product.bootimage.device; do
+        resetprop "${prop}" "$1"
+    done
+    echo "I:identity: device name -> $1" >> "${LOGF}"
+}
+
 set_identity() {
     resetprop "ro.product.brand" "$1"
     resetprop "ro.product.model" "$2"
@@ -47,6 +64,8 @@ sku="$(getprop ro.boot.hardware.sku)"
 region="$(getprop ro.boot.hwc)"
 
 echo "I:identity: sku='${sku}' region='${region}'" >> "${LOGF}"
+
+[ -n "${sku}" ] && set_device_name "${sku}"
 
 case "${sku}" in
     marble)
