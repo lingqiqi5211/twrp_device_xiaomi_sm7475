@@ -16,11 +16,6 @@ is_mounted() {
     /system/bin/grep -q " $1 " /proc/mounts
 }
 
-# insmod refuses a module whose vermagic differs from the running kernel, so the
-# file has to be chosen by vermagic rather than by path. The device's own vendor
-# partitions always hold a matching build; a copy shipped with the image only
-# matches the one kernel it was taken from, and stops matching the moment the
-# owner flashes a different one. Try every candidate and take the first match.
 mount_vendor_dlkm() {
     is_mounted /vendor_dlkm && return 0
     slot_suffix="$(/system/bin/getprop ro.boot.slot_suffix)"
@@ -33,28 +28,37 @@ mount_vendor_dlkm() {
     return 1
 }
 
+# insmod is the only reliable judge of whether a module fits the running kernel:
+# a custom kernel commonly keeps the stock vermagic so the stock vendor modules
+# still load, while uname -r reports its own name, and comparing the two rejects
+# modules the kernel would have accepted. Try every candidate and keep the first
+# that loads, starting with /lib/modules, which comes from the running boot image
+# and so fits by construction.
+insmod_first() {
+    file_pattern="$1"
+    mount_vendor_dlkm || true
+    for directory in /lib/modules /vendor_dlkm/lib/modules /vendor/lib/modules \
+                     /vendor_dlkm/lib/modules/* /vendor/lib/modules/*; do
+        for candidate in "${directory}"/${file_pattern}; do
+            [ -f "${candidate}" ] || continue
+            if /system/bin/insmod "${candidate}"; then
+                log_message "loaded ${candidate}"
+                return 0
+            fi
+        done
+    done
+
+    log_message "no usable ${file_pattern} for kernel $(/system/bin/uname -r)"
+    return 1
+}
+
 load_module() {
     module_name="$1"
     file_name="$2"
     if /system/bin/grep -q "^${module_name} " /proc/modules; then
         return 0
     fi
-
-    mount_vendor_dlkm || true
-    kernel_version="$(/system/bin/uname -r)"
-    for directory in /vendor_dlkm/lib/modules /vendor/lib/modules \
-                     /vendor_dlkm/lib/modules/* /vendor/lib/modules/*; do
-        candidate="${directory}/${file_name}"
-        [ -f "${candidate}" ] || continue
-        /system/bin/grep -aq "vermagic=${kernel_version} " "${candidate}" || continue
-        if /system/bin/insmod "${candidate}"; then
-            log_message "loaded ${file_name} from ${directory}"
-            return 0
-        fi
-    done
-
-    log_message "no ${file_name} built for kernel ${kernel_version}"
-    return 1
+    insmod_first "${file_name}"
 }
 
 signal_cnss_fs_ready() {
@@ -98,8 +102,21 @@ start_wifi() {
     # and then no module name shows up in /proc/modules even though the driver
     # is there. The interface is the thing that matters, so ask for it.
     if [ ! -e "/sys/class/net/${iface}" ]; then
-        load_module cfg80211 cfg80211.ko || return 1
-        load_module qca6490 qca_cld3_qca6490.ko || return 1
+        # cfg80211 can be built into the kernel, in which case there is no file
+        # to load and nothing is wrong. The WLAN driver is one module per chip
+        # and a taro device carries several, so try them all rather than naming
+        # one here. Either way the interface is what decides.
+        load_module cfg80211 cfg80211.ko || true
+        insmod_first 'qca_cld3_*.ko' || true
+        attempt=0
+        while [ ! -e "/sys/class/net/${iface}" ]; do
+            attempt=$((attempt + 1))
+            if [ "${attempt}" -ge 50 ]; then
+                log_message "no WLAN driver produced ${iface}"
+                return 1
+            fi
+            /system/bin/sleep 0.1
+        done
     fi
 
     /system/bin/setprop wifi.interface "${iface}"
