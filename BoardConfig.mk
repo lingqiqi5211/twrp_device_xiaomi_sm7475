@@ -143,7 +143,7 @@ TW_EXCLUDE_DEFAULT_USB_INIT := true
 # A union across the family: the loader logs "unavailable modules are optional
 # for this device" and carries on, so listing another device's touch driver
 # costs nothing here.
-TW_LOAD_VENDOR_MODULES := "adsp_loader_dlkm.ko goodix_core.ko fts_touch_spi.ko xiaomi_touch.ko"
+TW_LOAD_VENDOR_MODULES := "adsp_loader_dlkm.ko goodix_core.ko goodix_3626.ko fts_touch_spi.ko focaltech_fts.ko synaptics_dsx.ko nt36xxx-i2c.ko nt36xxx-spi.ko xiaomi_touch.ko"
 TW_LOAD_VENDOR_MODULES_EXCLUDE_GKI := true
 TW_VENDOR_MODULES_PREPARE_SCRIPT := "/system/bin/beforemodules.sh"
 TW_USE_SERIALNO_PROPERTY_FOR_DEVICE_ID := true

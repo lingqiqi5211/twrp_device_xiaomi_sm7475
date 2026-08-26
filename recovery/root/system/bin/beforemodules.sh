@@ -7,7 +7,10 @@
 # and a module can register a driver on both buses.
 
 LOGF=/tmp/recovery.log
-TOUCH_MODULES="goodix_core fts_touch_spi focaltech_fts synaptics_dsx"
+# Every touch driver the family ships. The kernel turns a hyphen in a module
+# file name into an underscore, so these are the /proc/modules spellings.
+TOUCH_MODULES="goodix_core goodix_3626 fts_touch_spi focaltech_fts \
+               synaptics_dsx nt36xxx_i2c nt36xxx_spi"
 
 module_has_device() {
     for driver in /sys/module/"$1"/drivers/*; do
