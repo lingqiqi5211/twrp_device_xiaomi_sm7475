@@ -9,7 +9,7 @@
 LOGF=/tmp/recovery.log
 # Every touch driver the family ships. The kernel turns a hyphen in a module
 # file name into an underscore, so these are the /proc/modules spellings.
-TOUCH_MODULES="goodix_core goodix_3626 fts_touch_spi focaltech_fts \
+TOUCH_MODULES="goodix_core fts_touch_spi focaltech_fts \
                synaptics_dsx nt36xxx_i2c nt36xxx_spi"
 
 module_has_device() {
