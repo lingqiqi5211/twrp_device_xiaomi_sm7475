@@ -1,5 +1,8 @@
 # ADB
 ro.adb.secure=0
+# adbd listens on tcp:5555 alongside USB from startup, so it becomes
+# reachable as soon as the WLAN interface has an address.
+service.adb.tcp.port=5555
 ro.boot.dynamic_partitions=true
 
 # Battery / QTI HAL selection
