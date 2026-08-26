@@ -93,7 +93,14 @@ case "${sku}" in
         fi
         ;;
     *)
-        echo "E:identity: no entry for sku '${sku}', keeping build values" >> "${LOGF}"
+        # An unlisted taro device still deserves its own name rather than the
+        # product name every member of the family shares.
+        if [ -n "${sku}" ]; then
+            set_identity "Xiaomi" "${sku}"
+            echo "W:identity: no entry for sku '${sku}', using the codename" >> "${LOGF}"
+        else
+            echo "E:identity: no sku reported, keeping build values" >> "${LOGF}"
+        fi
         ;;
 esac
 
