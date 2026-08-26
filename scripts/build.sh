@@ -97,6 +97,17 @@ rm -f -- \
     "${product_out}/ramdisk-recovery.img" \
     "${product_out}/recovery.img"
 
+# kati does not always notice that this tree's makefiles changed, and then the
+# recovery binary keeps the cflags baked in from the previous run -- a
+# BoardConfig-only edit such as TW_LOAD_VENDOR_MODULES silently never reaches
+# the image. Drop its stamps when anything here is newer than what it generated.
+kati_ninja="${OUT_DIR:-out}/build-${twrp_product}.ninja"
+if [[ -f "${kati_ninja}" ]] &&
+        [[ -n "$(find "${target_tree}" -name '*.mk' -newer "${kati_ninja}" -print -quit)" ]]; then
+    echo "Device makefiles changed since kati last ran; forcing a regeneration."
+    rm -f -- "${OUT_DIR:-out}"/.kati_stamp-* "${OUT_DIR:-out}/last_kati_suffix"
+fi
+
 export ALLOW_MISSING_DEPENDENCIES=true
 
 # Blueprint calls debug.SetGCPercent(-1), so soong_build's analysis heap only
