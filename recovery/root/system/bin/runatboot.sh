@@ -15,14 +15,64 @@
 # package's pre-device. The build leaves all of them saying "taro", which is the
 # product name shared by nine devices, so every device-specific zip refused to
 # install.
+DEVICE_NAME_PROPS="ro.product.device ro.build.product ro.product.vendor.device
+                   ro.vendor.product.device ro.product.odm.device
+                   ro.product.system.device ro.product.system_ext.device
+                   ro.product.product.device ro.product.bootimage.device"
+
+# Setting the live properties is only half of it. A flashable zip's own setup
+# mounts the installed system over /system, which shadows recovery's toolbox and
+# leaves getprop unusable; AnyKernel3 then falls back to reading default.prop and
+# build.prop off disk, where this image still names the product. /default.prop
+# links to prop.default and is the first file that fallback opens, and its reader
+# takes the last match for a key, so the file has to agree with the properties.
+line_count() {
+    n="$(wc -l < "$1" 2>/dev/null)"
+    case "${n}" in
+        ''|*[!0-9]*) echo 0 ;;
+        *)           echo "${n}" ;;
+    esac
+}
+
+set_device_name_on_disk() {
+    if [ ! -w /prop.default ]; then
+        echo "E:identity: /prop.default is not writable, zips still read the product name" >> "${LOGF}"
+        return 0
+    fi
+
+    original="$(line_count /prop.default)"
+    [ "${original}" -gt 0 ] || return 0
+
+    new=/tmp/prop.default.new
+    rm -f "${new}"
+    grep -vE "^(ro\.product\.device|ro\.build\.product|ro\.product\.vendor\.device|ro\.vendor\.product\.device)=" \
+        /prop.default > "${new}" 2>/dev/null
+
+    for prop in ro.product.device ro.build.product \
+                ro.product.vendor.device ro.vendor.product.device; do
+        echo "${prop}=$1" >> "${new}"
+    done
+
+    # Two lines out, four in, so the rewrite can only grow. Anything else means a
+    # step failed, and a truncated prop.default is far worse than a device name
+    # the installers cannot read.
+    if [ "$(line_count "${new}")" -lt "${original}" ]; then
+        echo "E:identity: refusing to shrink /prop.default" >> "${LOGF}"
+        rm -f "${new}"
+        return 0
+    fi
+
+    cat "${new}" > /prop.default
+    rm -f "${new}"
+    echo "I:identity: on-disk device name -> $1" >> "${LOGF}"
+}
+
 set_device_name() {
-    for prop in ro.product.device ro.build.product ro.product.vendor.device \
-                ro.vendor.product.device ro.product.odm.device \
-                ro.product.system.device ro.product.system_ext.device \
-                ro.product.product.device ro.product.bootimage.device; do
+    for prop in ${DEVICE_NAME_PROPS}; do
         resetprop "${prop}" "$1"
     done
     echo "I:identity: device name -> $1" >> "${LOGF}"
+    set_device_name_on_disk "$1"
 }
 
 set_identity() {
